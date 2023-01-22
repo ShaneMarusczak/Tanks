@@ -8,19 +8,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=800" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <link rel="stylesheet" type="text/css" href="css/styles.css" />
-    <!-- <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
-  <link rel="manifest" href="site.webmanifest" /> -->
-    <script src="js/tanks.js" defer></script>
+    <link rel="stylesheet" type="text/css" href="css/styles.min.css" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+    <link rel="manifest" href="site.webmanifest" />
+    <script src="js/tanks.min.js" defer></script>
     <title>Tanks</title>
 </head>
 
 <body>
     <header id="header-tag">
         <h1>Tanks</h1>
-        <p id="updateText" title="1:58 PM">Last Updated: January 22, 2023</p>
+        <p id="updateText" title="6:22 PM">Last Updated: January 22, 2023</p>
         <a id="homeLink" href="https://marusczak.com/Games-Home-Page" rel="noreferrer"><img id="homeIcon"
                 src="images/house-icon.png" alt="home link" /></a>
         <a id="gitHubLink" href="https://github.com/ShaneMarusczak/Tanks" target="_blank" rel="noreferrer"><img
@@ -41,8 +41,9 @@
         </button>
         <button type="button" onclick="location.reload()">Reload</button>
     </div>
-    <p id="startMessage" class="hidden">Click to place your tank</p>
-    <p id="endMessage" class="hidden">Click to place your enemy</p>
+    <p id="introMessage">Enter a game board size</p>
+    <p id="startMessage" class="hidden">Click to place the enemy tank</p>
+    <p id="endMessage" class="hidden">Click to place your tank</p>
     <p id="wallMessage" class="hidden">Click and drag to place walls, right-click on a placed wall to remove</p>
     <p id="noPathMessage" class="hidden">These tanks can not battle!</p>
     <div class="gameBoardWrapper">
