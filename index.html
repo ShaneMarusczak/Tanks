@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto:wght@500&display=swap"
+        rel="stylesheet" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=800" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <link rel="stylesheet" type="text/css" href="css/styles.css" />
+    <!-- <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+  <link rel="manifest" href="site.webmanifest" /> -->
+    <script src="js/tanks.js" defer></script>
+    <title>Tanks</title>
+</head>
+
+<body>
+    <header id="header-tag">
+        <h1>Tanks</h1>
+        <p id="updateText" title="1:58 PM">Last Updated: January 22, 2023</p>
+        <a id="homeLink" href="https://marusczak.com/Games-Home-Page" rel="noreferrer"><img id="homeIcon"
+                src="images/house-icon.png" alt="home link" /></a>
+        <a id="gitHubLink" href="https://github.com/ShaneMarusczak/Tanks" target="_blank" rel="noreferrer"><img
+                id="githubicon" src="images/github-icon.png" alt="github link" /></a>
+    </header>
+    <div id="menu">
+        <div>
+            <label for="rowsInput" class="textInputLabel">Rows:</label>
+            <input type="text" id="rowsInput" name="rows" value="30" />
+        </div>
+        <div>
+            <label for="colsInput" class="textInputLabel">Columns:</label>
+            <input type="text" id="colsInput" name="cols" value="30" />
+        </div>
+        <button type="button" name="buildGrid" id="buildGrid">Build Grid</button>
+        <button type="button" name="start" id="start" class="hidden">
+            Start
+        </button>
+        <button type="button" onclick="location.reload()">Reload</button>
+    </div>
+    <p id="startMessage" class="hidden">Click to place your tank</p>
+    <p id="endMessage" class="hidden">Click to place your enemy</p>
+    <p id="wallMessage" class="hidden">Click and drag to place walls, right-click on a placed wall to remove</p>
+    <p id="noPathMessage" class="hidden">These tanks can not battle!</p>
+    <div class="gameBoardWrapper">
+        <div id="gameBoard_UI" class="shadowBox"></div>
+    </div>
+    <div id="messages"></div>
+</body>
+
+</html>
