@@ -1,8 +1,5 @@
 (function () {
-
     ///TODO: add an option on the screen for premade boards, save drawn boards in local storage
-
-
     let gameStarted = false;
     let gameOver = false;
     let paused = false;
@@ -30,6 +27,8 @@
     let startCell, endCell;
 
     const gameBoard = [];
+
+    let eventQueue = new Queue();
 
     const gameBoard_UI = document.getElementById("gameBoard_UI");
 
@@ -300,6 +299,7 @@
             walk_path(startCell);
             window.focus();
             gameTick();
+            eventLoop();
 
         } else if (!startLocated) {
             document.getElementById("wallMessage").classList.add("hidden");
@@ -313,6 +313,35 @@
                 getCellElem(x, y).classList.remove("cell_hover");
             }
         }
+    }
+
+    function eventLoop() {
+        if (!gameOver && !paused) {
+            let dir = eventQueue.dequeue();
+            if (typeof dir !== "undefined" && dir !== null) {
+                moveEnd(dir);
+            }
+            let newDir = getPressedDirection();
+            if (newDir !== "" && validMove(newDir)) {
+                eventQueue.enqueue(newDir);
+            }
+            if (!gameOver && !paused) {
+                sleep(100).then(() => eventLoop());
+            }
+        }
+    }
+
+    function validMove(dir) {
+        let cell;
+        for (let n of endCell.neighbors) {
+            if (n.direction === dir) {
+                cell = getCell(n.x, n.y);
+                if (typeof cell === "undefined" || cell === null) return false;
+                if (cell.wall) return false;
+                return true;
+            }
+        }
+        return false;
     }
 
     function gameTick() {
@@ -541,14 +570,17 @@
         } else if (right) {
             return "E";
         }
-        //unreachable
         return "";
     }
 
     function keyDownHanlder(e) {
+        if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].indexOf(e.code) > -1) {
+            e.preventDefault();
+        }
         if (gameStarted && !gameOver) {
             keyDowns[e.key] = true;
             if (!paused && checkValidKeyState()) {
+                eventQueue.empty();
                 moveEnd(getPressedDirection());
             }
         }
@@ -558,6 +590,7 @@
         if (gameStarted && !gameOver) {
             keyDowns[e.key] = false;
             if (!paused && checkValidKeyState()) {
+                eventQueue.empty();
                 moveEnd(getPressedDirection());
             }
         }
@@ -572,6 +605,7 @@
             paused = !paused;
             if (!paused) {
                 gameTick();
+                eventLoop();
             }
             document.getElementById("pause").textContent = paused ? "Unpause" : "Pause";
 
@@ -605,27 +639,5 @@
             return false;
         }
     })();
-
-    class Queue {
-        constructor() {
-            this.elements = [];
-        }
-    }
-
-    Queue.prototype.enqueue = function (e) {
-        this.elements.push(e);
-    };
-
-    Queue.prototype.dequeue = function () {
-        return this.elements.shift();
-    };
-
-    Queue.prototype.isEmpty = function () {
-        return this.elements.length === 0;
-    };
-
-    Queue.prototype.length = function () {
-        return this.elements.length;
-    }
 
 })();
