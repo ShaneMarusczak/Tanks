@@ -1,12 +1,18 @@
 (function () {
+
+    ///TODO: add an option on the screen for premade boards, save drawn boards in local storage
+
+
     let gameStarted = false;
     let gameOver = false;
+    let paused = false;
+
     let gridBuilt = false;
 
     let rowsValid = true;
     let colsValid = true;
 
-    const gameSpeed = 150;
+    let gameSpeed = 150;
 
     let rows = 30;
     let cols = 30;
@@ -26,8 +32,6 @@
     const gameBoard = [];
 
     const gameBoard_UI = document.getElementById("gameBoard_UI");
-    const rowsInput = document.getElementById("rowsInput");
-    const colsInput = document.getElementById("colsInput");
 
     class Cell {
         constructor(x, y) {
@@ -253,6 +257,7 @@
     function gameOverHandler(message) {
         alert(message);
         gameOver = true;
+        document.getElementById("reload").classList.remove("notShown");
     }
 
     function uiChangesOnStart() {
@@ -260,7 +265,10 @@
         start.removeEventListener("click", start);
         start.disabled = true;
         start.blur();
+        start.classList.add("hidden");
         document.getElementById("wallMessage").classList.add("notShown");
+        document.getElementById("pause").classList.remove("hidden");
+        document.getElementById("reload").classList.add("notShown");
     }
 
     function clearSelection() {
@@ -290,7 +298,6 @@
         disableHover();
         if (startLocated) {
             walk_path(startCell);
-            fillInGaps();
             window.focus();
             gameTick();
 
@@ -309,24 +316,19 @@
     }
 
     function gameTick() {
-        if (!gameOver) {
-            moveCellTowardsMouse();
-            if (!gameOver) {
+        if (!gameOver && !paused) {
+            singleStep();
+            if (!gameOver && !paused) {
                 sleep(gameSpeed).then(() => gameTick());
             }
         }
     }
 
-    function fillInGaps() {
-        for (let x = 0; x < cols; x++) {
-            for (let y = 0; y < rows; y++) {
-                let to_check = getCell(x, y);
-                if (!to_check.visited) {
-                    to_check.wall = true;
-                    getCellElem(x, y).classList.add("wall");
-                }
-            }
-        }
+    function singleStep() {
+        gameSpeed = Array.from(document.getElementById("difficulty").options).find(
+            (d) => d.selected
+        ).value;
+        moveCellTowardsMouse();
     }
 
     function walk_path(root) {
@@ -349,6 +351,9 @@
         q.enqueue(root);
         while (!q.isEmpty()) {
             let cell = q.dequeue();
+            if (cell.start_cell) {
+                return;
+            }
             for (let n of cell.neighbors.reverse()) {
                 let n_cell = getCell(n.x, n.y);
                 if (n.direction === "NE" && checkCorner("N", "E", cell, "NE")) {
@@ -413,77 +418,20 @@
 
     function buildGrid(e) {
         if (!gameStarted && rowsValid && colsValid && !gridBuilt) {
-            rows = Number(rowsInput.value);
-            cols = Number(colsInput.value);
-            rowsInput.disabled = true;
-            colsInput.disabled = true;
             e.target.classList.add("hidden");
             document.getElementById("start").disabled = false;
             document.getElementById("start").classList.remove("hidden");
+            const mapSize = Array.from(document.getElementById("mapSize").options).find(
+                (d) => d.selected
+            ).value;
+            cols = mapSize;
+            rows = mapSize;
+            document.getElementById("mapSizeDropdown").classList.add("hidden");
+            document.getElementById("tankSvg").classList.add("hidden");
             buildGridInternal();
             gridBuilt = true;
             document.getElementById("introMessage").classList.add("hidden");
             document.getElementById("startMessage").classList.remove("hidden");
-        }
-    }
-
-    function testRowsInput(e) {
-        const regex = /^\d{0,2}$/;
-        if (
-            regex.test(e.target.value) &&
-            Number(e.target.value) <= 75 &&
-            Number(e.target.value) > 0 &&
-            e.target.value !== ""
-        ) {
-            rowsValid = true;
-            let elem = document.getElementById("invalidRows");
-            if (typeof elem != "undefined" && elem != null) {
-                elem.remove();
-            }
-        } else {
-            if (rowsValid) {
-                const message = document.createElement("p");
-                message.id = "invalidRows";
-                message.textContent = "Valid range is 1-75 rows";
-                message.classList.add("bad");
-                document
-                    .getElementById("messages")
-                    .insertBefore(
-                        message,
-                        document.getElementById("messages").firstChild
-                    );
-            }
-            rowsValid = false;
-        }
-    }
-
-    function testColsInput(e) {
-        const regex = /^\d{0,2}$/;
-        if (
-            regex.test(e.target.value) &&
-            Number(e.target.value) <= 75 &&
-            Number(e.target.value) > 0 &&
-            e.target.value !== ""
-        ) {
-            colsValid = true;
-            let elem = document.getElementById("invalidCols");
-            if (typeof elem != "undefined" && elem != null) {
-                elem.remove();
-            }
-        } else {
-            if (colsValid) {
-                const message = document.createElement("p");
-                message.id = "invalidCols";
-                message.textContent = "Valid range is 1-75 columns";
-                message.classList.add("bad");
-                document
-                    .getElementById("messages")
-                    .insertBefore(
-                        message,
-                        document.getElementById("messages").firstChild
-                    );
-            }
-            colsValid = false;
         }
     }
 
@@ -600,7 +548,7 @@
     function keyDownHanlder(e) {
         if (gameStarted && !gameOver) {
             keyDowns[e.key] = true;
-            if (checkValidKeyState()) {
+            if (!paused && checkValidKeyState()) {
                 moveEnd(getPressedDirection());
             }
         }
@@ -609,7 +557,7 @@
     function keyUpHandler(e) {
         if (gameStarted && !gameOver) {
             keyDowns[e.key] = false;
-            if (checkValidKeyState()) {
+            if (!paused && checkValidKeyState()) {
                 moveEnd(getPressedDirection());
             }
         }
@@ -619,23 +567,38 @@
         document.getElementById("start").addEventListener("click", start);
         document.getElementById("buildGrid").addEventListener("click", buildGrid);
 
+        document.getElementById("pause").addEventListener("click", () => {
+            if (gameOver || !gameStarted) return;
+            paused = !paused;
+            if (!paused) {
+                gameTick();
+            }
+            document.getElementById("pause").textContent = paused ? "Unpause" : "Pause";
+
+            if (paused) {
+                document.getElementById("reload").classList.remove("notShown");
+            } else {
+                document.getElementById("reload").classList.add("notShown");
+            }
+        })
+
         document.body.onmousedown = setLeftButtonState;
         document.body.onmousemove = setLeftButtonState;
         document.body.onmouseup = setLeftButtonState;
 
         document.addEventListener("keydown", keyDownHanlder);
         document.addEventListener("keyup", keyUpHandler);
-
-        rowsInput.addEventListener("input", testRowsInput);
-        colsInput.addEventListener("input", testColsInput);
-        colsInput.value = "30";
-        rowsInput.value = "30";
         document.getElementById("start").disabled = true;
         document.oncontextmenu = () => false;
         document.draggable = false;
         document.ondragstart = function () {
             return false;
         }
+
+        document.getElementById("difficulty")
+            .addEventListener("change", () => {
+                document.getElementById("difficulty").blur();
+            });
 
         gameBoard_UI.draggable = false;
         gameBoard_UI.ondragstart = function () {

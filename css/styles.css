@@ -4,7 +4,6 @@
   font-family: "Roboto Mono", monospace;
 }
 
-html,
 body {
   display: flex;
   flex-direction: column;
@@ -180,4 +179,8 @@ button {
 
 .visited {
   background-color: rgba(57, 255, 20, .2);
+}
+
+.dropdown {
+  margin-right: 5px;
 }
