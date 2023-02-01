@@ -130,6 +130,8 @@
         };
     }
 
+    const convertToPXs = (num) => num + "px";
+
     function getCellConnectionDirection(dir_x, dir_y) {
         if (dir_x === 0 && dir_y === -1) {
             return "N";
@@ -326,6 +328,71 @@
         }
     }
 
+    const dxmap = {
+        "N": 0,
+        "S": 0,
+        "E": -1,
+        "W": 1,
+        "NE": -1,
+        "NW": 1,
+        "SE": -1,
+        "SW": 1
+    }
+
+    const dymap = {
+        "N": 1,
+        "S": -1,
+        "E": 0,
+        "W": 0,
+        "NE": 1,
+        "NW": 1,
+        "SE": -1,
+        "SW": -1
+    }
+
+    const anglemap = {
+        "N": 0,
+        "S": 0,
+        "E": 90,
+        "W": 90,
+        "NE": 45,
+        "NW": -45,
+        "SE": -45,
+        "SW": 45
+    }
+
+    const colides = (obj1, obj2) =>
+        !(
+            obj2.offsetLeft > obj1.offsetWidth + obj1.offsetLeft ||
+            obj1.offsetLeft > obj2.offsetWidth + obj2.offsetLeft ||
+            obj2.offsetTop > obj1.offsetHeight + obj1.offsetTop ||
+            obj1.offsetTop > obj2.offsetHeight + obj2.offsetTop
+        );
+
+    function firePlayerLaser() {
+        const laser = document.createElement("div");
+        laser.classList.add("laser");
+        const cellElem = getCellElemFromCell(endCell);
+        laser.style.left = convertToPXs(cellElem.offsetLeft - (cellElem.offsetWidth / 2));
+        laser.style.top = convertToPXs(cellElem.offsetTop - (cellElem.offsetHeight / 2));
+        const dx = dxmap[lastDirectionMoved] * 20;
+        const dy = dymap[lastDirectionMoved] * 20;
+        const angle = anglemap[lastDirectionMoved];
+        laser.style.transform = "rotate(" + angle + "deg)";
+        gameBoard_UI.appendChild(laser);
+        for (let i = 0; i < 30; i++) {
+            sleep(i * 25).then(() => {
+                laser.style.top = convertToPXs(
+                    cellElem.offsetTop - dy * i
+                );
+                laser.style.left = convertToPXs(
+                    cellElem.offsetLeft - dx * i
+                );
+            });
+        }
+        sleep(600).then(() => laser.remove());
+    }
+
     async function eventLoop() {
         while (!gameOver && !paused) {
             const movementEvent = movementQueue.dequeue();
@@ -334,7 +401,7 @@
             };
             const firingEvent = firingQueue.dequeue();
             if (typeof firingEvent !== "undefined" && firingEvent !== null && keyDowns[" "]) {
-                console.log("fire!");
+                firePlayerLaser();
             };
             const pressedEvents = getPressedEvents();
             for (let event of pressedEvents) {
@@ -632,21 +699,24 @@
     }
 
     function keyUpHandler(e) {
+        if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].indexOf(e.code) > -1) {
+            e.preventDefault();
+        }
         if (gameStarted && !gameOver) {
             keyDowns[e.key] = false;
-            if (!paused && checkValidKeyState()) {
+            if (!paused) {
                 if (e.key !== " ") {
                     movementQueue.empty();
                 } else if (e.key === " ") {
-                    console.log("fire!");
+                    firePlayerLaser();
                     firingQueue.empty();
                 }
                 const pressedEvents = getPressedEvents();
                 for (let event of pressedEvents) {
-                    if (event.type === "move") {
+                    if (event.type === "move" && checkValidKeyState()) {
                         movementQueue.enqueue(event);
                     }
-                    else if (event.type === "fire") {
+                    else if (event.type === "fire" && checkValidKeyState()) {
                         firingQueue.enqueue(event);
                     }
                 }

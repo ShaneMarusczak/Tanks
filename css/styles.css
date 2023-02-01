@@ -184,3 +184,11 @@ button {
 .dropdown {
   margin-right: 5px;
 }
+
+.laser {
+  position: absolute;
+  width: 7px;
+  height: 30px;
+  background-color: red;
+  border-radius: 5px;
+}
