@@ -664,14 +664,13 @@
             if (!paused) {
                 gameTick();
                 eventLoop();
+                document.getElementById("reload").classList.add("notShown");
+            } else {
+                movementQueue.empty();
+                firingQueue.empty();
+                document.getElementById("reload").classList.remove("notShown");
             }
             document.getElementById("pause").textContent = paused ? "Unpause" : "Pause";
-
-            if (paused) {
-                document.getElementById("reload").classList.remove("notShown");
-            } else {
-                document.getElementById("reload").classList.add("notShown");
-            }
         })
 
         document.body.onmousedown = setLeftButtonState;
