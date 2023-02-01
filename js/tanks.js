@@ -28,9 +28,20 @@
 
     const gameBoard = [];
 
-    let eventQueue = new Queue();
+    const movementQueue = new Queue();
+    const firingQueue = new Queue();
+
+    let lastDirectionMoved;
 
     const gameBoard_UI = document.getElementById("gameBoard_UI");
+    const startButton = document.getElementById("start");
+
+    class GameEvent {
+        constructor(type, description) {
+            this.type = type;
+            this.description = description;
+        }
+    }
 
     class Cell {
         constructor(x, y) {
@@ -223,6 +234,7 @@
         if (startLocated) {
             walk_path(startCell);
         }
+        lastDirectionMoved = dir;
     }
 
     function moveCellTowardsMouse() {
@@ -260,11 +272,10 @@
     }
 
     function uiChangesOnStart() {
-        const start = document.getElementById("start");
-        start.removeEventListener("click", start);
-        start.disabled = true;
-        start.blur();
-        start.classList.add("hidden");
+        startButton.removeEventListener("click", start);
+        startButton.disabled = true;
+        startButton.blur();
+        startButton.classList.add("hidden");
         document.getElementById("wallMessage").classList.add("notShown");
         document.getElementById("pause").classList.remove("hidden");
         document.getElementById("reload").classList.add("notShown");
@@ -315,20 +326,29 @@
         }
     }
 
-    function eventLoop() {
-        if (!gameOver && !paused) {
-            let dir = eventQueue.dequeue();
-            if (typeof dir !== "undefined" && dir !== null) {
-                moveEnd(dir);
+    async function eventLoop() {
+        while (!gameOver && !paused) {
+            const movementEvent = movementQueue.dequeue();
+            if (typeof movementEvent !== "undefined" && movementEvent !== null) {
+                moveEnd(movementEvent.description);
+            };
+            const firingEvent = firingQueue.dequeue();
+            if (typeof firingEvent !== "undefined" && firingEvent !== null && keyDowns[" "]) {
+                console.log("fire!");
+            };
+            const pressedEvents = getPressedEvents();
+            for (let event of pressedEvents) {
+                if (event.type === "move" && checkValidKeyState() && validMove(event.description)) {
+                    movementQueue.enqueue(event);
+                }
+                if (event.type === "fire") {
+                    firingQueue.enqueue(event);
+                }
             }
-            let newDir = getPressedDirection();
-            if (newDir !== "" && validMove(newDir)) {
-                eventQueue.enqueue(newDir);
-            }
-            if (!gameOver && !paused) {
-                sleep(100).then(() => eventLoop());
-            }
+
+            await sleep(100);
         }
+
     }
 
     function validMove(dir) {
@@ -344,13 +364,12 @@
         return false;
     }
 
-    function gameTick() {
-        if (!gameOver && !paused) {
+    async function gameTick() {
+        while (!gameOver && !paused) {
             singleStep();
-            if (!gameOver && !paused) {
-                sleep(gameSpeed).then(() => gameTick());
-            }
+            await sleep(gameSpeed);
         }
+
     }
 
     function singleStep() {
@@ -375,7 +394,7 @@
     }
 
     function draw_path(root) {
-        let q = new Queue();
+        const q = new Queue();
         root.visited = true;
         q.enqueue(root);
         while (!q.isEmpty()) {
@@ -448,8 +467,8 @@
     function buildGrid(e) {
         if (!gameStarted && rowsValid && colsValid && !gridBuilt) {
             e.target.classList.add("hidden");
-            document.getElementById("start").disabled = false;
-            document.getElementById("start").classList.remove("hidden");
+            startButton.disabled = false;
+            startButton.classList.remove("hidden");
             const mapSize = Array.from(document.getElementById("mapSize").options).find(
                 (d) => d.selected
             ).value;
@@ -461,6 +480,7 @@
             gridBuilt = true;
             document.getElementById("introMessage").classList.add("hidden");
             document.getElementById("startMessage").classList.remove("hidden");
+            startButton.scrollIntoView({ behavior: "smooth" });
         }
     }
 
@@ -533,44 +553,61 @@
         const down = keyDowns.ArrowDown || keyDowns.s || keyDowns.S;
         const left = keyDowns.ArrowLeft || keyDowns.a || keyDowns.A;
         const right = keyDowns.ArrowRight || keyDowns.d || keyDowns.D;
+        const space = keyDowns[" "];
 
         if ((up && down) || (left && right)) return false;
 
-        if (!up && !down && !left && !right) return false;
+        if (!up && !down && !left && !right && !space) return false;
 
-        let keys = 0;
-        Object.values(keyDowns).forEach(k => {
-            if (k) {
-                keys++;
-            }
-        });
-        return keys < 3;
+        // let keys = 0;
+        // Object.values(keyDowns).forEach(k => {
+        //     if (k) {
+        //         keys++;
+        //     }
+        // });
+        // return keys < 3;
+        return true;
     }
 
-    function getPressedDirection() {
+    function getPressedEvents() {
         const up = keyDowns.ArrowUp || keyDowns.w || keyDowns.W;
         const down = keyDowns.ArrowDown || keyDowns.s || keyDowns.S;
         const left = keyDowns.ArrowLeft || keyDowns.a || keyDowns.A;
         const right = keyDowns.ArrowRight || keyDowns.d || keyDowns.D;
+        const space = keyDowns[" "];
+
+        const rv = [];
 
         if (up && left) {
-            return "NW";
-        } else if (up && right) {
-            return "NE";
-        } else if (down && right) {
-            return "SE";
-        } else if (down && left) {
-            return "SW";
-        } else if (down) {
-            return "S";
-        } else if (up) {
-            return "N";
-        } else if (left) {
-            return "W";
-        } else if (right) {
-            return "E";
+            rv.push(new GameEvent("move", "NW"));
         }
-        return "";
+        else if (up && right) {
+            rv.push(new GameEvent("move", "NE"));
+        }
+        else if (down && right) {
+            rv.push(new GameEvent("move", "SE"));
+        }
+        else if (down && left) {
+            rv.push(new GameEvent("move", "SW"));
+        }
+        else if (down) {
+            rv.push(new GameEvent("move", "S"));
+        }
+        else if (up) {
+            rv.push(new GameEvent("move", "N"));
+        }
+        else if (left) {
+            rv.push(new GameEvent("move", "W"));
+        }
+        else if (right) {
+            rv.push(new GameEvent("move", "E"));
+        }
+
+        if (space) {
+            rv.push(new GameEvent("fire", "playertank"));
+        }
+
+        return rv;
     }
 
     function keyDownHanlder(e) {
@@ -580,8 +617,16 @@
         if (gameStarted && !gameOver) {
             keyDowns[e.key] = true;
             if (!paused && checkValidKeyState()) {
-                eventQueue.empty();
-                moveEnd(getPressedDirection());
+                if (e.key !== " ") {
+                    movementQueue.empty();
+                }
+                const pressedEvents = getPressedEvents();
+                for (let event of pressedEvents) {
+                    if (event.type === "move") {
+                        movementQueue.enqueue(event);
+                    }
+                }
+
             }
         }
     }
@@ -590,14 +635,27 @@
         if (gameStarted && !gameOver) {
             keyDowns[e.key] = false;
             if (!paused && checkValidKeyState()) {
-                eventQueue.empty();
-                moveEnd(getPressedDirection());
+                if (e.key !== " ") {
+                    movementQueue.empty();
+                } else if (e.key === " ") {
+                    console.log("fire!");
+                    firingQueue.empty();
+                }
+                const pressedEvents = getPressedEvents();
+                for (let event of pressedEvents) {
+                    if (event.type === "move") {
+                        movementQueue.enqueue(event);
+                    }
+                    else if (event.type === "fire") {
+                        firingQueue.enqueue(event);
+                    }
+                }
             }
         }
     }
 
     (function () {
-        document.getElementById("start").addEventListener("click", start);
+        startButton.addEventListener("click", start);
         document.getElementById("buildGrid").addEventListener("click", buildGrid);
 
         document.getElementById("pause").addEventListener("click", () => {
@@ -622,7 +680,7 @@
 
         document.addEventListener("keydown", keyDownHanlder);
         document.addEventListener("keyup", keyUpHandler);
-        document.getElementById("start").disabled = true;
+        startButton.disabled = true;
         document.oncontextmenu = () => false;
         document.draggable = false;
         document.ondragstart = function () {
