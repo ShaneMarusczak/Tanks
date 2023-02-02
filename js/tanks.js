@@ -376,18 +376,18 @@
         const rv = [];
         if (lastDirectionMoved === "N") {
             rv.push(cellElem.offsetLeft - 3.5 + cellElem.offsetWidth / 2);
-            rv.push(cellElem.offsetTop - 15);
+            rv.push(cellElem.offsetTop - cellElem.offsetHeight / 2);
         }
         else if (lastDirectionMoved === "S") {
-            rv.push(cellElem.offsetLeft + cellElem.offsetWidth / 2);
-            rv.push(cellElem.offsetTop);
+            rv.push(cellElem.offsetLeft - 3.5 + cellElem.offsetWidth / 2);
+            rv.push(cellElem.offsetTop + cellElem.offsetHeight / 2);
         }
         else if (lastDirectionMoved === "E") {
             rv.push(cellElem.offsetLeft + cellElem.offsetWidth);
             rv.push(cellElem.offsetTop);
         }
         else if (lastDirectionMoved === "W") {
-            rv.push(cellElem.offsetLeft);
+            rv.push(cellElem.offsetLeft - 3.5);
             rv.push(cellElem.offsetTop);
         }
         else if (lastDirectionMoved === "NW") {
@@ -395,7 +395,7 @@
             rv.push(cellElem.offsetTop - cellElem.offsetHeight / 2);
         }
         else if (lastDirectionMoved === "NE") {
-            rv.push(cellElem.offsetLeft + cellElem.offsetWidth);
+            rv.push(cellElem.offsetLeft - 3.5 + cellElem.offsetWidth);
             rv.push(cellElem.offsetTop - cellElem.offsetHeight / 2);
         }
         else if (lastDirectionMoved === "SW") {
@@ -403,7 +403,7 @@
             rv.push(cellElem.offsetTop + cellElem.offsetHeight / 2);
         }
         else if (lastDirectionMoved === "SE") {
-            rv.push(cellElem.offsetLeft + cellElem.offsetWidth);
+            rv.push(cellElem.offsetLeft + cellElem.offsetWidth - 3.5);
             rv.push(cellElem.offsetTop + cellElem.offsetHeight / 2);
         }
         return rv;
