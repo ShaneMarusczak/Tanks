@@ -31,7 +31,7 @@
     const movementQueue = new Queue();
     const firingQueue = new Queue();
 
-    let lastDirectionMoved;
+    let lastDirectionMoved = "N";
 
     const gameBoard_UI = document.getElementById("gameBoard_UI");
     const startButton = document.getElementById("start");
@@ -268,6 +268,9 @@
     }
 
     function gameOverHandler(message) {
+        Array.from(document.getElementsByClassName("laser")).forEach((l) =>
+            l.remove()
+        );
         alert(message);
         gameOver = true;
         document.getElementById("reload").classList.remove("notShown");
@@ -369,12 +372,49 @@
             obj1.offsetTop > obj2.offsetHeight + obj2.offsetTop
         );
 
+    function getXYForLaser(cellElem) {
+        const rv = [];
+        if (lastDirectionMoved === "N") {
+            rv.push(cellElem.offsetLeft - 3.5 + cellElem.offsetWidth / 2);
+            rv.push(cellElem.offsetTop - 15);
+        }
+        else if (lastDirectionMoved === "S") {
+            rv.push(cellElem.offsetLeft + cellElem.offsetWidth / 2);
+            rv.push(cellElem.offsetTop);
+        }
+        else if (lastDirectionMoved === "E") {
+            rv.push(cellElem.offsetLeft + cellElem.offsetWidth);
+            rv.push(cellElem.offsetTop);
+        }
+        else if (lastDirectionMoved === "W") {
+            rv.push(cellElem.offsetLeft);
+            rv.push(cellElem.offsetTop);
+        }
+        else if (lastDirectionMoved === "NW") {
+            rv.push(cellElem.offsetLeft);
+            rv.push(cellElem.offsetTop - cellElem.offsetHeight / 2);
+        }
+        else if (lastDirectionMoved === "NE") {
+            rv.push(cellElem.offsetLeft + cellElem.offsetWidth);
+            rv.push(cellElem.offsetTop - cellElem.offsetHeight / 2);
+        }
+        else if (lastDirectionMoved === "SW") {
+            rv.push(cellElem.offsetLeft);
+            rv.push(cellElem.offsetTop + cellElem.offsetHeight / 2);
+        }
+        else if (lastDirectionMoved === "SE") {
+            rv.push(cellElem.offsetLeft + cellElem.offsetWidth);
+            rv.push(cellElem.offsetTop + cellElem.offsetHeight / 2);
+        }
+        return rv;
+    }
+
     function firePlayerLaser() {
         const laser = document.createElement("div");
         laser.classList.add("laser");
-        const cellElem = getCellElemFromCell(endCell);
-        laser.style.left = convertToPXs(cellElem.offsetLeft - (cellElem.offsetWidth / 2));
-        laser.style.top = convertToPXs(cellElem.offsetTop - (cellElem.offsetHeight / 2));
+        const [laserX, laserY] = getXYForLaser(getCellElemFromCell(endCell));
+        laser.style.left = convertToPXs(laserX);
+        laser.style.top = convertToPXs(laserY);
         const dx = dxmap[lastDirectionMoved] * 20;
         const dy = dymap[lastDirectionMoved] * 20;
         const angle = anglemap[lastDirectionMoved];
@@ -383,11 +423,29 @@
         for (let i = 0; i < 30; i++) {
             sleep(i * 25).then(() => {
                 laser.style.top = convertToPXs(
-                    cellElem.offsetTop - dy * i
+                    laserY - dy * i
                 );
                 laser.style.left = convertToPXs(
-                    cellElem.offsetLeft - dx * i
+                    laserX - dx * i
                 );
+                if (!colides(laser, gameBoard_UI)) {
+                    laser.remove();
+                }
+                if (colides(laser, getCellElemFromCell(startCell))) {
+                    document.getElementsByClassName("start")[0].classList.remove("start");
+                    gameOverHandler("You shot the enemy tank!");
+                }
+                Array.from(document.getElementsByClassName("wall")).forEach((w) => {
+                    if (colides(laser, w)) {
+                        laser.remove();
+                    }
+                });
+                Array.from(document.getElementsByClassName("edge")).forEach((e) => {
+                    if (colides(laser, e)) {
+                        laser.remove();
+                    }
+                });
+
             });
         }
         sleep(600).then(() => laser.remove());
@@ -542,10 +600,8 @@
             cols = mapSize;
             rows = mapSize;
             document.getElementById("mapSizeDropdown").classList.add("hidden");
-            document.getElementById("tankSvg").classList.add("hidden");
             buildGridInternal();
             gridBuilt = true;
-            document.getElementById("introMessage").classList.add("hidden");
             document.getElementById("startMessage").classList.remove("hidden");
             startButton.scrollIntoView({ behavior: "smooth" });
         }
@@ -575,6 +631,11 @@
                 cell.id = getCellId(x, y);
                 cell.classList.add("cell");
                 cell.classList.add("cell_hover");
+
+                if (x === 0 || x === cols - 1 || y === 0 || y === rows - 1) {
+                    cell.classList.add("edge");
+                }
+
                 if (cols * rows < 25 * 25) {
                     cell.classList.add("large_cell");
                 } else if (cols * rows < 40 * 40) {
@@ -625,14 +686,6 @@
         if ((up && down) || (left && right)) return false;
 
         if (!up && !down && !left && !right && !space) return false;
-
-        // let keys = 0;
-        // Object.values(keyDowns).forEach(k => {
-        //     if (k) {
-        //         keys++;
-        //     }
-        // });
-        // return keys < 3;
         return true;
     }
 
@@ -766,5 +819,4 @@
             return false;
         }
     })();
-
 })();

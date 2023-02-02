@@ -67,7 +67,6 @@ p {
 }
 
 #gameBoard_UI {
-  margin: 10px;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -171,6 +170,7 @@ button {
 
 .end {
   background-color: navy;
+  position: relative;
 }
 
 /* .path {

@@ -35,15 +35,17 @@
                 <option value="30" selected="selected">Medium</option>
                 <option value="40">Large</option>
                 <option value="50">Very Large</option>
+                <option value="60">Gigantic</option>
             </select>
         </div>
         <div class="dropdown">
             <label for="difficulty">Enemy Tank Speed: </label>
             <select id="difficulty" autocomplete="off">
                 <option value="800">Slow</option>
-                <option value="10000000000" selected="selected">Medium</option>
+                <option value="600" selected="selected">Medium</option>
                 <option value="350">Fast</option>
-                <option value="105">Very Fast</option>
+                <option value="125">Very Fast</option>
+                <option value="50">Insane</option>
             </select>
         </div>
         <button type="button" name="buildGrid" id="buildGrid">Build Grid</button>
@@ -55,7 +57,6 @@
         </button>
         <button type="button" id="reload" onclick="location.reload()">Reload</button>
     </div>
-    <p id="introMessage">Enter a game board size</p>
     <p id="startMessage" class="hidden">Click to place the enemy tank</p>
     <p id="endMessage" class="hidden">Click to place your tank</p>
     <p id="wallMessage" class="hidden">Click and drag to place walls, right-click on a placed wall to remove</p>
@@ -63,24 +64,6 @@
     <div class="gameBoardWrapper">
         <div id="gameBoard_UI" class="shadowBox"></div>
     </div>
-    <svg width="400" height="200" id="tankSvg">
-        <rect x="20" y="80" width="160" height="80" fill="rgb(200,200,200)" />
-        <rect x="30" y="90" width="140" height="60" fill="rgb(180,180,180)" />
-        <rect x="40" y="100" width="120" height="40" fill="rgb(160,160,160)" />
-        <rect x="50" y="110" width="100" height="20" fill="rgb(140,140,140)" />
-        <rect x="70" y="120" width="60" height="20" fill="rgb(120,120,120)" />
-        <rect x="15" y="140" width="170" height="40" fill="rgb(100,100,100)" />
-        <rect x="30" y="150" width="140" height="20" fill="rgb(80,80,80)" />
-        <circle cx="40" cy="160" r="10" fill="rgb(50,50,50)" />
-        <circle cx="80" cy="160" r="10" fill="rgb(50,50,50)" />
-        <circle cx="120" cy="160" r="10" fill="rgb(50,50,50)" />
-        <circle cx="160" cy="160" r="10" fill="rgb(50,50,50)" />
-        <rect x="50" y="65" width="170" height="15" fill="rgb(60,60,60)" />
-        <rect x="65" y="55" width="70" height="10" fill="rgb(50,50,50)" />
-        <rect x="80" y="45" width="40" height="10" fill="rgb(30,30,30)" />
-        <rect x="90" y="35" width="20" height="20" fill="black" />
-    </svg>
-    <div id="messages"></div>
 </body>
 
 </html>
