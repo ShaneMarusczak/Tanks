@@ -1,50 +1,17 @@
 (function () {
-    ///TODO: add an option on the screen for premade boards, save drawn boards in local storage
-    let gameStarted = false;
-    let gameOver = false;
-    let paused = false;
-
-    let gridBuilt = false;
-
-    let rowsValid = true;
-    let colsValid = true;
-
-    let gameSpeed = 150;
-
-    let rows = 30;
-    let cols = 30;
-
-    let settingStart = true;
-    let settingEnd = false;
-    let settingWalls = false;
-    let startSet = false;
-    let endSet = false;
+    const session = new GameSession(150, 30, 30);
 
     let leftMouseButtonOnlyDown = false;
 
-    let startLocated = false;
-
     let startCell, endCell;
-
-    const gameBoard = [];
-
-    const movementQueue = new Queue();
-    const firingQueue = new Queue();
 
     let lastDirectionMoved = "N";
 
     const gameBoard_UI = document.getElementById("gameBoard_UI");
     const startButton = document.getElementById("start");
 
-    class GameEvent {
-        constructor(type, description) {
-            this.type = type;
-            this.description = description;
-        }
-    }
-
     class Cell {
-        constructor(x, y) {
+        constructor(x, y, session) {
             this.x = x;
             this.y = y;
             this.neighbors = [];
@@ -55,13 +22,14 @@
             this.end_cell = false;
             this.distance = 0;
             this.visited = false;
+            this.session = session;
         }
 
         setNeighbors() {
             const dirs = [-1, 0, 1];
             for (let dir_x of dirs) {
                 for (let dir_y of dirs) {
-                    if (validPosition(this.x + dir_x, this.y + dir_y)) {
+                    if (validPosition(this.x + dir_x, this.y + dir_y, session.gameBoard.cols, session.gameBoard.rows)) {
                         if (dir_x === 0 && dir_y === 0) {
                             continue;
                         }
@@ -81,7 +49,7 @@
             let low = Infinity;
             let lowCell = null
             for (let n of this.neighbors) {
-                let cell = getCell(n.x, n.y);
+                let cell = session.gameBoard.getCell(n.x, n.y);
                 if (cell.distance < low && cell.visited && !cell.wall) {
                     low = cell.distance;
                     lowCell = cell;
@@ -91,76 +59,41 @@
         }
 
         handleClick(e) {
-            if (settingStart && !gameStarted && !settingWalls && e.button === 0) {
+            if (session.settingStart && !session.hasStarted && !session.settingWalls && e.button === 0) {
                 this.start_cell = true;
                 getCellElem(this.x, this.y).classList.add("start");
                 startCell = this;
-                settingStart = false;
-                settingEnd = true;
-                startSet = true;
+                session.settingStart = false;
+                session.settingEnd = true;
+                session.startSet = true;
                 document.getElementById("startMessage").classList.add("hidden");
                 document.getElementById("endMessage").classList.remove("hidden");
-            } else if (settingEnd && !gameStarted && !settingWalls && e.button === 0) {
+            } else if (session.settingEnd && !session.hasStarted && !session.settingWalls && e.button === 0) {
                 endCell = this;
                 this.end_cell = true;
                 getCellElem(this.x, this.y).classList.add("end");
-                settingEnd = false;
-                endSet = true;
+                session.settingEnd = false;
+                session.endSet = true;
                 document.getElementById("endMessage").classList.add("hidden");
                 document.getElementById("wallMessage").classList.remove("hidden");
-                settingWalls = true;
-                for (let x = 0; x < cols; x++) {
-                    for (let y = 0; y < rows; y++) {
+                session.settingWalls = true;
+                for (let x = 0; x < session.gameBoard.cols; x++) {
+                    for (let y = 0; y < session.gameBoard.rows; y++) {
                         getCellElem(x, y).addEventListener("mouseover", onMouseOver);
                     }
                 }
-            } else if (!settingEnd && !settingStart && settingWalls && !gameStarted && e.button === 2) {
+            } else if (!session.settingEnd && !session.settingStart && session.settingWalls && !session.hasStarted && e.button === 2) {
                 this.wall = false;
                 getCellElem(this.x, this.y).classList.remove("wall");
             }
         }
     }
 
-    function build_neighbor(x, y, connection_cost, direction) {
-        return {
-            x,
-            y,
-            connection_cost,
-            direction
-        };
-    }
-
-    const convertToPXs = (num) => num + "px";
-
-    function getCellConnectionDirection(dir_x, dir_y) {
-        if (dir_x === 0 && dir_y === -1) {
-            return "N";
-        } else if (dir_x === 1 && dir_y === -1) {
-            return "NE";
-        } else if (dir_x === 1 && dir_y === 0) {
-            return "E";
-        } else if (dir_x === 1 && dir_y === 1) {
-            return "SE";
-        } else if (dir_x === 0 && dir_y === 1) {
-            return "S";
-        } else if (dir_x === -1 && dir_y === 1) {
-            return "SW";
-        } else if (dir_x === -1 && dir_y === 0) {
-            return "W";
-        } else {
-            return "NW";
-        }
-    }
-
-    function sleep(ms) {
-        return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-
     function onMouseOver(e) {
         clearSelection();
-        if (leftMouseButtonOnlyDown && !gameStarted && settingWalls) {
+        if (leftMouseButtonOnlyDown && !session.hasStarted && session.settingWalls) {
             let [x, y] = getXYFromCell(e.target);
-            let cell = getCell(x, y);
+            let cell = session.gameBoard.getCell(x, y);
             if (cell.start_cell || cell.end_cell || cell.wall) {
                 return;
             }
@@ -169,30 +102,10 @@
         }
     }
 
-    function getCell(x, y) {
-        return gameBoard[x][y];
-    }
-
-    function getCellId(x, y) {
-        return "cell-" + x + "-" + y;
-    }
-
-    function getCellElem(x, y) {
-        return document.getElementById(getCellId(x, y));
-    }
-
-    function getCellElemFromCell(cell) {
-        return document.getElementById(getCellId(cell.x, cell.y));
-    }
-
-    function validPosition(x, y) {
-        return x >= 0 && x < cols && y >= 0 && y < rows;
-    }
-
     function resetSignal(resetEnd = true) {
-        for (let x = 0; x < cols; x++) {
-            for (let y = 0; y < rows; y++) {
-                let to_check = getCell(x, y);
+        for (let x = 0; x < session.gameBoard.cols; x++) {
+            for (let y = 0; y < session.gameBoard.rows; y++) {
+                let to_check = session.gameBoard.getCell(x, y);
                 let to_check_elem = getCellElem(x, y);
                 to_check.path = false;
                 if (to_check.wall) {
@@ -210,12 +123,12 @@
         }
     }
 
-    function moveEnd(dir) {
+    function movePlayerTank(dir) {
         let cell;
 
         for (let n of endCell.neighbors) {
             if (n.direction === dir) {
-                cell = getCell(n.x, n.y);
+                cell = session.gameBoard.getCell(n.x, n.y);
                 break;
             }
         }
@@ -233,16 +146,16 @@
         endCell = cell;
 
         draw_path(endCell);
-        if (startLocated) {
+        if (session.startLocated) {
             walk_path(startCell);
         }
         lastDirectionMoved = dir;
     }
 
-    function moveCellTowardsMouse() {
+    function moveEnemyTowardsPlayer() {
         let pathCell;
         for (let n of startCell.neighbors) {
-            let cell = getCell(n.x, n.y);
+            let cell = session.gameBoard.getCell(n.x, n.y);
             if (cell.end_cell) {
                 gameOverHandler("Enemy crashed into you.");
                 return;
@@ -262,7 +175,7 @@
 
         resetSignal(false);
         draw_path(endCell);
-        if (startLocated) {
+        if (session.startLocated) {
             walk_path(startCell);
         }
     }
@@ -272,7 +185,7 @@
             l.remove()
         );
         alert(message);
-        gameOver = true;
+        session.hasEnded = true;
         document.getElementById("reload").classList.remove("notShown");
     }
 
@@ -284,93 +197,44 @@
         document.getElementById("wallMessage").classList.add("notShown");
         document.getElementById("pause").classList.remove("hidden");
         document.getElementById("reload").classList.add("notShown");
-    }
-
-    function clearSelection() {
-        if (window.getSelection) {
-            window.getSelection().removeAllRanges();
-        } else if (document.selection) {
-            document.selection.empty();
-        }
+        Array.from(document.querySelectorAll(".cell")).forEach(cell_elem => {
+            cell_elem.removeEventListener("mouseover", highlightCell);
+            cell_elem.removeEventListener("mouselout", highlightCellRevert);
+        });
     }
 
     function start() {
-        if (!startSet || !endSet || gameStarted) {
+        if (!session.startSet || !session.endSet || session.hasStarted) {
             return;
         }
 
         clearSelection();
         uiChangesOnStart();
-        Array.from(document.querySelectorAll(".cell")).forEach(cell_elem => {
-            cell_elem.removeEventListener("mouseover", highlightCell);
-            cell_elem.removeEventListener("mouselout", highlightCellRevert);
-        });
 
-        gameStarted = true;
-        settingWalls = false;
+        session.hasStarted = true;
+        session.settingWalls = false;
 
         draw_path(endCell);
         disableHover();
-        if (startLocated) {
+        if (session.startLocated) {
             walk_path(startCell);
             window.focus();
             gameTick();
             eventLoop();
 
-        } else if (!startLocated) {
+        } else if (!session.startLocated) {
             document.getElementById("wallMessage").classList.add("hidden");
             document.getElementById("noPathMessage").classList.remove("hidden");
         }
     }
 
     function disableHover() {
-        for (let x = 0; x < cols; x++) {
-            for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < session.gameBoard.cols; x++) {
+            for (let y = 0; y < session.gameBoard.rows; y++) {
                 getCellElem(x, y).classList.remove("cell_hover");
             }
         }
     }
-
-    const dxmap = {
-        "N": 0,
-        "S": 0,
-        "E": -1,
-        "W": 1,
-        "NE": -1,
-        "NW": 1,
-        "SE": -1,
-        "SW": 1
-    }
-
-    const dymap = {
-        "N": 1,
-        "S": -1,
-        "E": 0,
-        "W": 0,
-        "NE": 1,
-        "NW": 1,
-        "SE": -1,
-        "SW": -1
-    }
-
-    const anglemap = {
-        "N": 0,
-        "S": 0,
-        "E": 90,
-        "W": 90,
-        "NE": 45,
-        "NW": -45,
-        "SE": -45,
-        "SW": 45
-    }
-
-    const colides = (obj1, obj2) =>
-        !(
-            obj2.offsetLeft > obj1.offsetWidth + obj1.offsetLeft ||
-            obj1.offsetLeft > obj2.offsetWidth + obj2.offsetLeft ||
-            obj2.offsetTop > obj1.offsetHeight + obj1.offsetTop ||
-            obj1.offsetTop > obj2.offsetHeight + obj2.offsetTop
-        );
 
     function getXYForLaser(cellElem) {
         const rv = [];
@@ -428,9 +292,6 @@
                 laser.style.left = convertToPXs(
                     laserX - dx * i
                 );
-                if (!colides(laser, gameBoard_UI)) {
-                    laser.remove();
-                }
                 if (colides(laser, getCellElemFromCell(startCell))) {
                     document.getElementsByClassName("start")[0].classList.remove("start");
                     gameOverHandler("You shot the enemy tank!");
@@ -452,22 +313,22 @@
     }
 
     async function eventLoop() {
-        while (!gameOver && !paused) {
-            const movementEvent = movementQueue.dequeue();
+        while (!session.hasEnded && !session.paused) {
+            const movementEvent = session.movementQueue.dequeue();
             if (typeof movementEvent !== "undefined" && movementEvent !== null) {
-                moveEnd(movementEvent.description);
+                movePlayerTank(movementEvent.description);
             };
-            const firingEvent = firingQueue.dequeue();
+            const firingEvent = session.firingQueue.dequeue();
             if (typeof firingEvent !== "undefined" && firingEvent !== null && keyDowns[" "]) {
                 firePlayerLaser();
             };
             const pressedEvents = getPressedEvents();
             for (let event of pressedEvents) {
                 if (event.type === "move" && checkValidKeyState() && validMove(event.description)) {
-                    movementQueue.enqueue(event);
+                    session.movementQueue.enqueue(event);
                 }
                 if (event.type === "fire") {
-                    firingQueue.enqueue(event);
+                    session.firingQueue.enqueue(event);
                 }
             }
 
@@ -480,7 +341,7 @@
         let cell;
         for (let n of endCell.neighbors) {
             if (n.direction === dir) {
-                cell = getCell(n.x, n.y);
+                cell = session.gameBoard.getCell(n.x, n.y);
                 if (typeof cell === "undefined" || cell === null) return false;
                 if (cell.wall) return false;
                 return true;
@@ -490,18 +351,18 @@
     }
 
     async function gameTick() {
-        while (!gameOver && !paused) {
+        while (!session.hasEnded && !session.paused) {
             singleStep();
-            await sleep(gameSpeed);
+            await sleep(session.speed);
         }
 
     }
 
     function singleStep() {
-        gameSpeed = Array.from(document.getElementById("difficulty").options).find(
+        session.speed = Array.from(document.getElementById("difficulty").options).find(
             (d) => d.selected
         ).value;
-        moveCellTowardsMouse();
+        moveEnemyTowardsPlayer();
     }
 
     function walk_path(root) {
@@ -528,7 +389,7 @@
                 return;
             }
             for (let n of cell.neighbors.reverse()) {
-                let n_cell = getCell(n.x, n.y);
+                let n_cell = session.gameBoard.getCell(n.x, n.y);
                 if (n.direction === "NE" && checkCorner("N", "E", cell, "NE")) {
                     cell.neighbors.splice(cell.neighbors.indexOf(n), 1);
                     continue;
@@ -543,7 +404,7 @@
                     continue;
                 }
                 if (n_cell.start_cell) {
-                    startLocated = true;
+                    session.startLocated = true;
                 }
                 if (n_cell.distance > cell.distance + n.connection_cost && n_cell.visited) {
                     n_cell.distance = cell.distance + n.connection_cost;
@@ -551,7 +412,6 @@
                 if (!n_cell.visited && !n_cell.wall) {
                     n_cell.visited = true;
                     n_cell.distance = cell.distance + n.connection_cost;
-                    let elem = getCellElem(n_cell.x, n_cell.y);
                     if (!n_cell.wall) {
                         q.enqueue(n_cell);
                     }
@@ -567,13 +427,13 @@
         let cell_d = null;
         for (let n of c.neighbors) {
             if (n.direction === n_1) {
-                cell_1 = getCell(n.x, n.y);
+                cell_1 = session.gameBoard.getCell(n.x, n.y);
             }
             if (n.direction === n_2) {
-                cell_2 = getCell(n.x, n.y);
+                cell_2 = session.gameBoard.getCell(n.x, n.y);
             }
             if (n.direction === d) {
-                cell_d = getCell(n.x, n.y)
+                cell_d = session.gameBoard.getCell(n.x, n.y)
             }
         }
         if (cell_1 === null || cell_2 === null || cell_d === null) {
@@ -585,23 +445,19 @@
         return false;
     }
 
-    function getXYFromCell(cell) {
-        return [cell.id.split("-")[1], cell.id.split("-")[2]];
-    }
-
     function buildGrid(e) {
-        if (!gameStarted && rowsValid && colsValid && !gridBuilt) {
+        if (!session.hasStarted && !session.gridBuilt) {
             e.target.classList.add("hidden");
             startButton.disabled = false;
             startButton.classList.remove("hidden");
             const mapSize = Array.from(document.getElementById("mapSize").options).find(
                 (d) => d.selected
             ).value;
-            cols = mapSize;
-            rows = mapSize;
+            session.gameBoard.cols = mapSize;
+            session.gameBoard.rows = mapSize;
             document.getElementById("mapSizeDropdown").classList.add("hidden");
             buildGridInternal();
-            gridBuilt = true;
+            session.gridBuilt = true;
             document.getElementById("startMessage").classList.remove("hidden");
             startButton.scrollIntoView({ behavior: "smooth" });
         }
@@ -613,8 +469,8 @@
     }
 
     function buildGridInternal() {
-        for (let x = 0; x < cols; x++) {
-            gameBoard.push([]);
+        for (let x = 0; x < session.gameBoard.cols; x++) {
+            session.gameBoard.push([]);
             const col = document.createElement("div");
             col.id = "col-" + x;
             col.classList.add("col");
@@ -623,24 +479,24 @@
                 return false;
             };
             gameBoard_UI.appendChild(col);
-            for (let y = 0; y < rows; y++) {
-                const newCell = new Cell(x, y);
-                gameBoard[x].push(newCell);
-                gameBoard[x][y].setNeighbors();
+            for (let y = 0; y < session.gameBoard.rows; y++) {
+                const newCell = new Cell(x, y, session);
+                session.gameBoard.pushX(x, newCell);
+                session.gameBoard.getCell(x, y).setNeighbors();
                 const cell = document.createElement("div");
                 cell.id = getCellId(x, y);
                 cell.classList.add("cell");
                 cell.classList.add("cell_hover");
 
-                if (x === 0 || x === cols - 1 || y === 0 || y === rows - 1) {
+                if (x === 0 || x === session.gameBoard.cols - 1 || y === 0 || y === session.gameBoard.rows - 1) {
                     cell.classList.add("edge");
                 }
 
-                if (cols * rows < 25 * 25) {
+                if (session.gameBoard.cols * session.gameBoard.rows < 25 * 25) {
                     cell.classList.add("large_cell");
-                } else if (cols * rows < 40 * 40) {
+                } else if (session.gameBoard.cols * session.gameBoard.rows < 40 * 40) {
                     cell.classList.add("medium_cell");
-                } else if (cols * rows < 60 * 60) {
+                } else if (session.gameBoard.cols * session.gameBoard.rows < 60 * 60) {
                     cell.classList.add("small_cell");
                 } else {
                     cell.classList.add("x-small_cell");
@@ -659,19 +515,13 @@
     }
 
     function highlightCell(e) {
-        if (settingStart) {
+        if (session.settingStart) {
             e.target.classList.add("startHighlight");
-        } else if (settingEnd) {
+        } else if (session.settingEnd) {
             e.target.classList.add("endHighlight");
-        } else if (settingWalls) {
+        } else if (session.settingWalls) {
             e.target.classList.add("wallHighlight");
         }
-    }
-
-    function highlightCellRevert(e) {
-        e.target.classList.remove("startHighlight");
-        e.target.classList.remove("endHighlight");
-        e.target.classList.remove("wallHighlight");
     }
 
     const keyDowns = {};
@@ -734,16 +584,16 @@
         if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].indexOf(e.code) > -1) {
             e.preventDefault();
         }
-        if (gameStarted && !gameOver) {
+        if (session.hasStarted && !session.hasEnded) {
             keyDowns[e.key] = true;
-            if (!paused && checkValidKeyState()) {
+            if (!session.paused && checkValidKeyState()) {
                 if (e.key !== " ") {
-                    movementQueue.empty();
+                    session.movementQueue.empty();
                 }
                 const pressedEvents = getPressedEvents();
                 for (let event of pressedEvents) {
                     if (event.type === "move") {
-                        movementQueue.enqueue(event);
+                        session.movementQueue.enqueue(event);
                     }
                 }
 
@@ -755,46 +605,48 @@
         if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].indexOf(e.code) > -1) {
             e.preventDefault();
         }
-        if (gameStarted && !gameOver) {
+        if (session.hasStarted && !session.hasEnded) {
             keyDowns[e.key] = false;
-            if (!paused) {
+            if (!session.paused) {
                 if (e.key !== " ") {
-                    movementQueue.empty();
+                    session.movementQueue.empty();
                 } else if (e.key === " ") {
                     firePlayerLaser();
-                    firingQueue.empty();
+                    session.firingQueue.empty();
                 }
                 const pressedEvents = getPressedEvents();
                 for (let event of pressedEvents) {
                     if (event.type === "move" && checkValidKeyState()) {
-                        movementQueue.enqueue(event);
+                        session.movementQueue.enqueue(event);
                     }
                     else if (event.type === "fire" && checkValidKeyState()) {
-                        firingQueue.enqueue(event);
+                        session.firingQueue.enqueue(event);
                     }
                 }
             }
         }
     }
 
+    function pausehandler() {
+        if (session.hasEnded || !session.hasStarted) return;
+        session.paused = !session.paused;
+        if (!session.paused) {
+            gameTick();
+            eventLoop();
+            document.getElementById("reload").classList.add("notShown");
+        } else {
+            session.movementQueue.empty();
+            session.firingQueue.empty();
+            document.getElementById("reload").classList.remove("notShown");
+        }
+        document.getElementById("pause").textContent = session.paused ? "Unpause" : "Pause";
+    }
+
     (function () {
         startButton.addEventListener("click", start);
         document.getElementById("buildGrid").addEventListener("click", buildGrid);
 
-        document.getElementById("pause").addEventListener("click", () => {
-            if (gameOver || !gameStarted) return;
-            paused = !paused;
-            if (!paused) {
-                gameTick();
-                eventLoop();
-                document.getElementById("reload").classList.add("notShown");
-            } else {
-                movementQueue.empty();
-                firingQueue.empty();
-                document.getElementById("reload").classList.remove("notShown");
-            }
-            document.getElementById("pause").textContent = paused ? "Unpause" : "Pause";
-        })
+        document.getElementById("pause").addEventListener("click", pausehandler);
 
         document.body.onmousedown = setLeftButtonState;
         document.body.onmousemove = setLeftButtonState;
