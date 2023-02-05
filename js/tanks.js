@@ -535,7 +535,7 @@
     let mineCount = 0; //semaphore
 
     async function placeMine() {
-        if (!session.hasStarted || session.hasEnded || mineCount > 4) return;
+        if (!session.hasStarted || session.hasEnded || session.paused || mineCount > 4) return;
         mineCount++;
         const cell = session.endCell;
         const cellElem = getCellElemFromCell(cell);
