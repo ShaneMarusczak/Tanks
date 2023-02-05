@@ -1,105 +1,13 @@
 (function () {
     const session = new GameSession(150, 30, 30);
 
-    let leftMouseButtonOnlyDown = false;
-
-    let startCell, endCell;
-
-    let lastDirectionMoved = "N";
-
     const gameBoard_UI = document.getElementById("gameBoard_UI");
     const startButton = document.getElementById("start");
 
-    class Cell {
-        constructor(x, y, session) {
-            this.x = x;
-            this.y = y;
-            this.neighbors = [];
-            this.cardinal_neighbors = [];
-            this.wall = false;
-            this.path = false;
-            this.start_cell = false;
-            this.end_cell = false;
-            this.distance = 0;
-            this.visited = false;
-            this.session = session;
-        }
 
-        setNeighbors() {
-            const dirs = [-1, 0, 1];
-            for (let dir_x of dirs) {
-                for (let dir_y of dirs) {
-                    if (validPosition(this.x + dir_x, this.y + dir_y, session.gameBoard.cols, session.gameBoard.rows)) {
-                        if (dir_x === 0 && dir_y === 0) {
-                            continue;
-                        }
-                        let cardinal_direction = getCellConnectionDirection(dir_x, dir_y);
-                        if (dir_x === 0 || dir_y === 0) {
-                            this.neighbors.push(build_neighbor(this.x + dir_x, this.y + dir_y, 1, cardinal_direction));
-                            this.cardinal_neighbors.push(build_neighbor(this.x + dir_x, this.y + dir_y, 1, cardinal_direction));
-                        } else {
-                            this.neighbors.push(build_neighbor(this.x + dir_x, this.y + dir_y, Math.sqrt(2), cardinal_direction));
-                        }
-                    }
-                }
-            }
-        }
-
-        getLowestDistanceNeighbor() {
-            let low = Infinity;
-            let lowCell = null
-            for (let n of this.neighbors) {
-                let cell = session.gameBoard.getCell(n.x, n.y);
-                if (cell.distance < low && cell.visited && !cell.wall) {
-                    low = cell.distance;
-                    lowCell = cell;
-                }
-            }
-            return lowCell;
-        }
-
-        handleClick(e) {
-            if (session.settingStart && !session.hasStarted && !session.settingWalls && e.button === 0) {
-                this.start_cell = true;
-                getCellElem(this.x, this.y).classList.add("start");
-                startCell = this;
-                session.settingStart = false;
-                session.settingEnd = true;
-                session.startSet = true;
-                document.getElementById("startMessage").classList.add("hidden");
-                document.getElementById("endMessage").classList.remove("hidden");
-            } else if (session.settingEnd && !session.hasStarted && !session.settingWalls && e.button === 0) {
-                endCell = this;
-                this.end_cell = true;
-                getCellElem(this.x, this.y).classList.add("end");
-                session.settingEnd = false;
-                session.endSet = true;
-                document.getElementById("endMessage").classList.add("hidden");
-                document.getElementById("wallMessage").classList.remove("hidden");
-                session.settingWalls = true;
-                for (let x = 0; x < session.gameBoard.cols; x++) {
-                    for (let y = 0; y < session.gameBoard.rows; y++) {
-                        getCellElem(x, y).addEventListener("mouseover", onMouseOver);
-                    }
-                }
-            } else if (!session.settingEnd && !session.settingStart && session.settingWalls && !session.hasStarted && e.button === 2) {
-                this.wall = false;
-                getCellElem(this.x, this.y).classList.remove("wall");
-            }
-        }
-    }
-
-    function onMouseOver(e) {
-        clearSelection();
-        if (leftMouseButtonOnlyDown && !session.hasStarted && session.settingWalls) {
-            let [x, y] = getXYFromCell(e.target);
-            let cell = session.gameBoard.getCell(x, y);
-            if (cell.start_cell || cell.end_cell || cell.wall) {
-                return;
-            }
-            cell.wall = true;
-            e.target.classList.add("wall");
-        }
+    function setLeftButtonState(e) {
+        session.leftMouseButtonOnlyDown =
+            e.buttons === undefined ? e.which === 1 : e.buttons === 1;
     }
 
     function resetSignal(resetEnd = true) {
@@ -118,7 +26,6 @@
                 to_check_elem.classList.remove("path");
                 to_check.visited = false;
                 to_check.distance = 0;
-                to_check_elem.textContent = "";
             }
         }
     }
@@ -126,7 +33,7 @@
     function movePlayerTank(dir) {
         let cell;
 
-        for (let n of endCell.neighbors) {
+        for (let n of session.endCell.neighbors) {
             if (n.direction === dir) {
                 cell = session.gameBoard.getCell(n.x, n.y);
                 break;
@@ -143,18 +50,18 @@
         cell.end_cell = true;
         getCellElemFromCell(cell).classList.add("end");
 
-        endCell = cell;
+        session.endCell = cell;
 
-        draw_path(endCell);
+        draw_path(session.endCell);
         if (session.startLocated) {
-            walk_path(startCell);
+            walk_path(session.startCell);
         }
-        lastDirectionMoved = dir;
+        session.lastDirectionMoved = dir;
     }
 
     function moveEnemyTowardsPlayer() {
         let pathCell;
-        for (let n of startCell.neighbors) {
+        for (let n of session.startCell.neighbors) {
             let cell = session.gameBoard.getCell(n.x, n.y);
             if (cell.end_cell) {
                 gameOverHandler("Enemy crashed into you.");
@@ -164,19 +71,19 @@
                 break;
             }
         }
-        startCell.start_cell = false;
-        getCellElem(startCell.x, startCell.y).classList.remove("start");
+        session.startCell.start_cell = false;
+        getCellElem(session.startCell.x, session.startCell.y).classList.remove("start");
 
-        startCell.path = false;
+        session.startCell.path = false;
         pathCell.start_cell = true;
 
-        startCell = pathCell;
+        session.startCell = pathCell;
         getCellElem(pathCell.x, pathCell.y).classList.add("start");
 
         resetSignal(false);
-        draw_path(endCell);
+        draw_path(session.endCell);
         if (session.startLocated) {
-            walk_path(startCell);
+            walk_path(session.startCell);
         }
     }
 
@@ -214,10 +121,10 @@
         session.hasStarted = true;
         session.settingWalls = false;
 
-        draw_path(endCell);
+        draw_path(session.endCell);
         disableHover();
         if (session.startLocated) {
-            walk_path(startCell);
+            walk_path(session.startCell);
             window.focus();
             gameTick();
             eventLoop();
@@ -238,35 +145,35 @@
 
     function getXYForLaser(cellElem) {
         const rv = [];
-        if (lastDirectionMoved === "N") {
+        if (session.lastDirectionMoved === "N") {
             rv.push(cellElem.offsetLeft - 3.5 + cellElem.offsetWidth / 2);
             rv.push(cellElem.offsetTop - cellElem.offsetHeight / 2);
         }
-        else if (lastDirectionMoved === "S") {
+        else if (session.lastDirectionMoved === "S") {
             rv.push(cellElem.offsetLeft - 3.5 + cellElem.offsetWidth / 2);
             rv.push(cellElem.offsetTop + cellElem.offsetHeight / 2);
         }
-        else if (lastDirectionMoved === "E") {
+        else if (session.lastDirectionMoved === "E") {
             rv.push(cellElem.offsetLeft + cellElem.offsetWidth);
             rv.push(cellElem.offsetTop);
         }
-        else if (lastDirectionMoved === "W") {
+        else if (session.lastDirectionMoved === "W") {
             rv.push(cellElem.offsetLeft - 3.5);
             rv.push(cellElem.offsetTop);
         }
-        else if (lastDirectionMoved === "NW") {
+        else if (session.lastDirectionMoved === "NW") {
             rv.push(cellElem.offsetLeft);
             rv.push(cellElem.offsetTop - cellElem.offsetHeight / 2);
         }
-        else if (lastDirectionMoved === "NE") {
+        else if (session.lastDirectionMoved === "NE") {
             rv.push(cellElem.offsetLeft - 3.5 + cellElem.offsetWidth);
             rv.push(cellElem.offsetTop - cellElem.offsetHeight / 2);
         }
-        else if (lastDirectionMoved === "SW") {
+        else if (session.lastDirectionMoved === "SW") {
             rv.push(cellElem.offsetLeft);
             rv.push(cellElem.offsetTop + cellElem.offsetHeight / 2);
         }
-        else if (lastDirectionMoved === "SE") {
+        else if (session.lastDirectionMoved === "SE") {
             rv.push(cellElem.offsetLeft + cellElem.offsetWidth - 3.5);
             rv.push(cellElem.offsetTop + cellElem.offsetHeight / 2);
         }
@@ -276,12 +183,12 @@
     function firePlayerLaser() {
         const laser = document.createElement("div");
         laser.classList.add("laser");
-        const [laserX, laserY] = getXYForLaser(getCellElemFromCell(endCell));
+        const [laserX, laserY] = getXYForLaser(getCellElemFromCell(session.endCell));
         laser.style.left = convertToPXs(laserX);
         laser.style.top = convertToPXs(laserY);
-        const dx = dxmap[lastDirectionMoved] * 20;
-        const dy = dymap[lastDirectionMoved] * 20;
-        const angle = anglemap[lastDirectionMoved];
+        const dx = dxmap[session.lastDirectionMoved] * 20;
+        const dy = dymap[session.lastDirectionMoved] * 20;
+        const angle = anglemap[session.lastDirectionMoved];
         laser.style.transform = "rotate(" + angle + "deg)";
         gameBoard_UI.appendChild(laser);
         for (let i = 0; i < 30; i++) {
@@ -292,7 +199,7 @@
                 laser.style.left = convertToPXs(
                     laserX - dx * i
                 );
-                if (colides(laser, getCellElemFromCell(startCell))) {
+                if (colides(laser, getCellElemFromCell(session.startCell))) {
                     document.getElementsByClassName("start")[0].classList.remove("start");
                     gameOverHandler("You shot the enemy tank!");
                 }
@@ -339,7 +246,7 @@
 
     function validMove(dir) {
         let cell;
-        for (let n of endCell.neighbors) {
+        for (let n of session.endCell.neighbors) {
             if (n.direction === dir) {
                 cell = session.gameBoard.getCell(n.x, n.y);
                 if (typeof cell === "undefined" || cell === null) return false;
@@ -376,7 +283,6 @@
         }
 
         walk_path(root.getLowestDistanceNeighbor());
-
     }
 
     function draw_path(root) {
@@ -461,11 +367,6 @@
             document.getElementById("startMessage").classList.remove("hidden");
             startButton.scrollIntoView({ behavior: "smooth" });
         }
-    }
-
-    function setLeftButtonState(e) {
-        leftMouseButtonOnlyDown =
-            e.buttons === undefined ? e.which === 1 : e.buttons === 1;
     }
 
     function buildGridInternal() {

@@ -14,6 +14,9 @@ class GameSession {
         this.gameBoard = new GameBoard(rows, cols);
         this.movementQueue = new Queue();
         this.firingQueue = new Queue();
+        this.leftMouseButtonOnlyDown = false;
+        this.startCell;
+        this.endCell;
+        this.lastDirectionMoved = "N";
     }
-
 }
