@@ -107,11 +107,11 @@ p {
 }
 
 .start {
-  background-color: firebrick;
+  background-color: firebrick !important;
 }
 
 .end {
-  background-color: blue;
+  background-color: blue !important;
 }
 
 .wall {
@@ -191,4 +191,44 @@ button {
   height: 30px;
   background-color: red;
   border-radius: 5px;
+}
+
+.mine {
+  background-color: orange;
+}
+
+.mineFlash {
+  background-color: orangered;
+}
+
+.controls>h2 {
+  margin-bottom: 5px;
+  text-align: center;
+}
+
+#hideBtn {
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  color: blue;
+}
+
+#hideBtn:hover {
+  cursor: pointer;
+}
+
+#ctrlList {
+  margin-top: 3px;
+  border-radius: 10px;
+  margin-bottom: 0;
+  height: max-content;
+  width: 250px;
+  border: 1px solid black;
+}
+
+#ctrlList p {
+  padding-right: 4px;
+  padding-left: 4px;
+  margin-top: 1px;
+  margin-bottom: 13px;
 }

@@ -3,7 +3,6 @@ class Cell {
         this.x = x;
         this.y = y;
         this.neighbors = [];
-        this.cardinal_neighbors = [];
         this.wall = false;
         this.path = false;
         this.start_cell = false;
@@ -11,16 +10,6 @@ class Cell {
         this.distance = 0;
         this.visited = false;
         this.session = session;
-
-        // this.searched = false;
-
-        this.f = 0;
-        this.g = 0;
-        this.h = 0;
-        this.cost = 1;
-        this.searched = false;
-        this.closed = false;
-        this.parent = null;
     }
 
     setNeighbors() {
@@ -34,7 +23,6 @@ class Cell {
                     let cardinal_direction = getCellConnectionDirection(dir_x, dir_y);
                     if (dir_x === 0 || dir_y === 0) {
                         this.neighbors.push(build_neighbor(this.x + dir_x, this.y + dir_y, 1, cardinal_direction));
-                        this.cardinal_neighbors.push(build_neighbor(this.x + dir_x, this.y + dir_y, 1, cardinal_direction));
                     } else {
                         this.neighbors.push(build_neighbor(this.x + dir_x, this.y + dir_y, Math.sqrt(2), cardinal_direction));
                     }

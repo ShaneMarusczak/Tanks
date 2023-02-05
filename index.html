@@ -8,7 +8,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=800" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <link rel="stylesheet" type="text/css" href="css/styles.css" />
+    <link rel="stylesheet" type="text/css" href="css/styles.min.css" />
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
@@ -26,7 +26,7 @@
 <body>
     <header id="header-tag">
         <h1>Tanks</h1>
-        <p id="updateText" title="11:53 AM">Last Updated: February 3, 2023</p>
+        <p id="updateText" title="9:59 AM">Last Updated: February 5, 2023</p>
         <a id="homeLink" href="https://marusczak.com/Games-Home-Page" rel="noreferrer"><img id="homeIcon"
                 src="images/house-icon.png" alt="home link" /></a>
         <a id="gitHubLink" href="https://github.com/ShaneMarusczak/Tanks" target="_blank" rel="noreferrer"><img
@@ -53,7 +53,7 @@
                 <option value="50">Insane</option>
             </select>
         </div>
-        <button type="button" name="buildGrid" id="buildGrid">Build Grid</button>
+        <button type="button" name="buildGrid" id="buildGrid">Build Map</button>
         <button type="button" name="start" id="start" class="hidden">
             Start
         </button>
@@ -68,6 +68,15 @@
     <p id="noPathMessage" class="hidden">These tanks can not battle!</p>
     <div class="gameBoardWrapper">
         <div id="gameBoard_UI" class="shadowBox"></div>
+    </div>
+    <div class="controls">
+        <h2>Controls</h2>
+        <p id="hideBtn">Show</p>
+        <div class="shadowBox hidden" id="ctrlList">
+            <p>Arrow Keys or WASD control your tank</p>
+            <p>Space Bar fires in the direction you are moving</p>
+            <p>M places a mine</p>
+        </div>
     </div>
 </body>
 

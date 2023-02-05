@@ -3,6 +3,7 @@
 
     const gameBoard_UI = document.getElementById("gameBoard_UI");
     const startButton = document.getElementById("start");
+    const pauseButton = document.getElementById("pause");
 
 
     function setLeftButtonState(e) {
@@ -102,7 +103,7 @@
         startButton.blur();
         startButton.classList.add("hidden");
         document.getElementById("wallMessage").classList.add("notShown");
-        document.getElementById("pause").classList.remove("hidden");
+        pauseButton.classList.remove("hidden");
         document.getElementById("reload").classList.add("notShown");
         Array.from(document.querySelectorAll(".cell")).forEach(cell_elem => {
             cell_elem.removeEventListener("mouseover", highlightCell);
@@ -362,6 +363,7 @@
             session.gameBoard.cols = mapSize;
             session.gameBoard.rows = mapSize;
             document.getElementById("mapSizeDropdown").classList.add("hidden");
+            document.getElementsByClassName("controls")[0].classList.add("hidden");
             buildGridInternal();
             session.gridBuilt = true;
             document.getElementById("startMessage").classList.remove("hidden");
@@ -482,7 +484,7 @@
     }
 
     function keyDownHanlder(e) {
-        if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].indexOf(e.code) > -1) {
+        if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "M"].indexOf(e.code) > -1) {
             e.preventDefault();
         }
         if (session.hasStarted && !session.hasEnded) {
@@ -503,17 +505,19 @@
     }
 
     function keyUpHandler(e) {
-        if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].indexOf(e.code) > -1) {
+        if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "M"].indexOf(e.code) > -1) {
             e.preventDefault();
         }
         if (session.hasStarted && !session.hasEnded) {
             keyDowns[e.key] = false;
             if (!session.paused) {
-                if (e.key !== " ") {
+                if (e.key !== " " && e.key !== "m") {
                     session.movementQueue.empty();
                 } else if (e.key === " ") {
                     firePlayerLaser();
                     session.firingQueue.empty();
+                } else if (e.key === "m") {
+                    placeMine();
                 }
                 const pressedEvents = getPressedEvents();
                 for (let event of pressedEvents) {
@@ -528,6 +532,49 @@
         }
     }
 
+    let mineCount = 0; //semaphore
+
+    async function placeMine() {
+        if (!session.hasStarted || session.hasEnded || mineCount > 4) return;
+        mineCount++;
+        const cell = session.endCell;
+        const cellElem = getCellElemFromCell(cell);
+        cellElem.classList.add("mine");
+        let count = 0;
+
+        while (count < 8) {
+            count++;
+            await sleep(125);
+            if (session.hasEnded) break;
+            cellElem.classList.add("mineFlash");
+            await sleep(125);
+            if (session.hasEnded) break;
+            cellElem.classList.remove("mineFlash");
+        }
+        if (session.hasEnded) {
+            cellElem.classList.remove("mine");
+            cellElem.classList.remove("mineFlash");
+        } else {
+            for (let n of cell.neighbors) {
+                const n_cell = session.gameBoard.getCell(n.x, n.y);
+                if (n_cell.start_cell) {
+                    document.getElementsByClassName("start")[0].classList.remove("start");
+                    gameOverHandler("You blew up the enemy tank!");
+                } else {
+                    getCellElemFromCell(n_cell).classList.add("mineFlash");
+                }
+            }
+            await sleep(125);
+            for (let n of cell.neighbors) {
+                const n_cell = session.gameBoard.getCell(n.x, n.y);
+                getCellElemFromCell(n_cell).classList.remove("mineFlash");
+            }
+
+            cellElem.classList.remove("mine");
+        }
+        mineCount--;
+    }
+
     function pausehandler() {
         if (session.hasEnded || !session.hasStarted) return;
         session.paused = !session.paused;
@@ -540,14 +587,29 @@
             session.firingQueue.empty();
             document.getElementById("reload").classList.remove("notShown");
         }
-        document.getElementById("pause").textContent = session.paused ? "Unpause" : "Pause";
+        pauseButton.textContent = session.paused ? "Unpause" : "Pause";
     }
+
+    const toggleControlList = () => {
+        const list = document.getElementById("ctrlList");
+        const btn = document.getElementById("hideBtn");
+        if (list.classList.contains("hidden")) {
+            list.classList.remove("hidden");
+            btn.textContent = "Hide";
+        } else {
+            list.classList.add("hidden");
+            btn.textContent = "Show";
+        }
+    };
 
     (function () {
         startButton.addEventListener("click", start);
         document.getElementById("buildGrid").addEventListener("click", buildGrid);
 
-        document.getElementById("pause").addEventListener("click", pausehandler);
+        pauseButton.addEventListener("click", pausehandler);
+        document
+            .getElementById("hideBtn")
+            .addEventListener("click", toggleControlList);
 
         document.body.onmousedown = setLeftButtonState;
         document.body.onmousemove = setLeftButtonState;
