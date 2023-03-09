@@ -232,3 +232,9 @@ button {
   margin-top: 1px;
   margin-bottom: 13px;
 }
+
+.newClass {
+  border-style: solid;
+  border-color: #31781b;
+  border-width: 30px;
+}

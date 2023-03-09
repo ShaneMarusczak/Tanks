@@ -209,11 +209,10 @@
                         laser.remove();
                     }
                 });
-                Array.from(document.getElementsByClassName("edge")).forEach((e) => {
-                    if (colides(laser, e)) {
-                        laser.remove();
-                    }
-                });
+
+                if (!colides(laser, gameBoard_UI)) {
+                    laser.remove();
+                }
 
             });
         }
@@ -368,6 +367,7 @@
             session.gridBuilt = true;
             document.getElementById("startMessage").classList.remove("hidden");
             startButton.scrollIntoView({ behavior: "smooth" });
+            document.getElementById("gameBoardWrapper").classList.add("newClass");
         }
     }
 
@@ -390,10 +390,6 @@
                 cell.id = getCellId(x, y);
                 cell.classList.add("cell");
                 cell.classList.add("cell_hover");
-
-                if (x === 0 || x === session.gameBoard.cols - 1 || y === 0 || y === session.gameBoard.rows - 1) {
-                    cell.classList.add("edge");
-                }
 
                 if (session.gameBoard.cols * session.gameBoard.rows < 25 * 25) {
                     cell.classList.add("large_cell");
