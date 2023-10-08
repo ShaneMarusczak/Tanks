@@ -92,6 +92,9 @@
         Array.from(document.getElementsByClassName("laser")).forEach((l) =>
             l.remove()
         );
+        Array.from(document.getElementsByClassName("enemylaser")).forEach((l) =>
+            l.remove()
+        );
         alert(message);
         session.hasEnded = true;
         document.getElementById("reload").classList.remove("notShown");
@@ -144,37 +147,37 @@
         }
     }
 
-    function getXYForLaser(cellElem) {
+    function getXYForLaser(cellElem, dir) {
         const rv = [];
-        if (session.lastDirectionMoved === "N") {
+        if (dir === "N") {
             rv.push(cellElem.offsetLeft - 3.5 + cellElem.offsetWidth / 2);
             rv.push(cellElem.offsetTop - cellElem.offsetHeight / 2);
         }
-        else if (session.lastDirectionMoved === "S") {
+        else if (dir === "S") {
             rv.push(cellElem.offsetLeft - 3.5 + cellElem.offsetWidth / 2);
             rv.push(cellElem.offsetTop + cellElem.offsetHeight / 2);
         }
-        else if (session.lastDirectionMoved === "E") {
+        else if (dir === "E") {
             rv.push(cellElem.offsetLeft + cellElem.offsetWidth);
             rv.push(cellElem.offsetTop);
         }
-        else if (session.lastDirectionMoved === "W") {
+        else if (dir === "W") {
             rv.push(cellElem.offsetLeft - 3.5);
             rv.push(cellElem.offsetTop);
         }
-        else if (session.lastDirectionMoved === "NW") {
+        else if (dir === "NW") {
             rv.push(cellElem.offsetLeft);
             rv.push(cellElem.offsetTop - cellElem.offsetHeight / 2);
         }
-        else if (session.lastDirectionMoved === "NE") {
+        else if (dir === "NE") {
             rv.push(cellElem.offsetLeft - 3.5 + cellElem.offsetWidth);
             rv.push(cellElem.offsetTop - cellElem.offsetHeight / 2);
         }
-        else if (session.lastDirectionMoved === "SW") {
+        else if (dir === "SW") {
             rv.push(cellElem.offsetLeft);
             rv.push(cellElem.offsetTop + cellElem.offsetHeight / 2);
         }
-        else if (session.lastDirectionMoved === "SE") {
+        else if (dir === "SE") {
             rv.push(cellElem.offsetLeft + cellElem.offsetWidth - 3.5);
             rv.push(cellElem.offsetTop + cellElem.offsetHeight / 2);
         }
@@ -184,7 +187,7 @@
     function firePlayerLaser() {
         const laser = document.createElement("div");
         laser.classList.add("laser");
-        const [laserX, laserY] = getXYForLaser(getCellElemFromCell(session.endCell));
+        const [laserX, laserY] = getXYForLaser(getCellElemFromCell(session.endCell), session.lastDirectionMoved);
         laser.style.left = convertToPXs(laserX);
         laser.style.top = convertToPXs(laserY);
         const dx = dxmap[session.lastDirectionMoved] * 20;
@@ -270,6 +273,83 @@
             (d) => d.selected
         ).value;
         moveEnemyTowardsPlayer();
+        fireEnemyLaser();
+    }
+
+    function getComputerLaserDirection() {
+        const enemeyTank = session.startCell;
+        const playerTank = session.endCell;
+
+        let firingDirection = "";
+        if(enemeyTank.x == playerTank.x && enemeyTank.y > playerTank.y) {
+            firingDirection = "N";
+        }
+        else if(enemeyTank.x == playerTank.x && enemeyTank.y < playerTank.y) {
+            firingDirection = "S"
+        }
+        else if(enemeyTank.x > playerTank.x && enemeyTank.y == playerTank.y) {
+            firingDirection = "W"
+        }
+        else if(enemeyTank.x < playerTank.x && enemeyTank.y == playerTank.y) {
+            firingDirection = "E"
+        }
+        else if(enemeyTank.x < playerTank.x && enemeyTank.y < playerTank.y) {
+            firingDirection = "SE"
+        }
+        else if(enemeyTank.x > playerTank.x && enemeyTank.y > playerTank.y) {
+            firingDirection = "NW"
+        }
+
+        else if(enemeyTank.x < playerTank.x && enemeyTank.y > playerTank.y) {
+            firingDirection = "NE"
+        }
+        else if(enemeyTank.x > playerTank.x && enemeyTank.y < playerTank.y) {
+            firingDirection = "SW"
+        }
+        return firingDirection;
+    }
+
+    function fireEnemyLaser() {
+        const firingDirection = getComputerLaserDirection();
+        fireEnemyLaserInner(firingDirection);
+    }
+
+    function fireEnemyLaserInner(firingDirection) {
+        const laser = document.createElement("div");
+        laser.classList.add("enemylaser");
+        const [laserX, laserY] = getXYForLaser(getCellElemFromCell(session.startCell), firingDirection);
+        laser.style.left = convertToPXs(laserX);
+        laser.style.top = convertToPXs(laserY);
+        const dx = dxmap[firingDirection] * 20;
+        const dy = dymap[firingDirection] * 20;
+        const angle = anglemap[firingDirection];
+        laser.style.transform = "rotate(" + angle + "deg)";
+        gameBoard_UI.appendChild(laser);
+        for (let i = 0; i < 30; i++) {
+            sleep(i * 25).then(() => {
+                laser.style.top = convertToPXs(
+                    laserY - dy * i
+                );
+                laser.style.left = convertToPXs(
+                    laserX - dx * i
+                );
+                if (colides(laser, getCellElemFromCell(session.endCell))) {
+                    document.getElementsByClassName("start")[0].classList.remove("start");
+                    gameOverHandler("Enemy tank shot you!");
+                }
+                Array.from(document.getElementsByClassName("wall")).forEach((w) => {
+                    if (colides(laser, w)) {
+                        laser.remove();
+                    }
+                });
+
+                if (!colides(laser, gameBoard_UI)) {
+                    laser.remove();
+                }
+
+            });
+        }
+        sleep(600).then(() => laser.remove());
     }
 
     function walk_path(root) {

@@ -189,6 +189,14 @@ button {
   position: absolute;
   width: 7px;
   height: 30px;
+  background-color: blue;
+  border-radius: 5px;
+}
+
+.enemylaser {
+  position: absolute;
+  width: 7px;
+  height: 30px;
   background-color: red;
   border-radius: 5px;
 }
