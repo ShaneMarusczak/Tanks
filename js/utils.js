@@ -100,11 +100,15 @@ const anglemap = {
     "SW": 45
 }
 
-const colides = (obj1, obj2) =>
-    !(
-        obj2.offsetLeft > obj1.offsetWidth + obj1.offsetLeft ||
-        obj1.offsetLeft > obj2.offsetWidth + obj2.offsetLeft ||
-        obj2.offsetTop > obj1.offsetHeight + obj1.offsetTop ||
-        obj1.offsetTop > obj2.offsetHeight + obj2.offsetTop
+function colides(elem1, elem2) {
+    const rect1 = elem1.getBoundingClientRect();
+    const rect2 = elem2.getBoundingClientRect();
+
+    return (
+      rect1.top < rect2.bottom &&
+      rect1.bottom > rect2.top &&
+      rect1.left < rect2.right &&
+      rect1.right > rect2.left
     );
+}
 
