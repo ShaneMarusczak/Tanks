@@ -177,6 +177,7 @@
     return rv;
   }
 
+  //fire at the location of the mouse cursor when you fire, not seeking
   function firePlayerLaser() {
     const laser = document.createElement("div");
     laser.classList.add("laser");
@@ -306,27 +307,29 @@
     let py = playerTank.y;
     const dir = session.lastDirectionMoved;
 
-    if (dir === "N") {
-      py = py - 3;
-    } else if (dir === "S") {
-      py = py + 3;
-    } else if (dir === "E") {
-      px = px + 3;
-    } else if (dir === "W") {
-      px = px - 3;
-    } else if (dir === "NW") {
-      py = py - 3;
-      px = px - 3;
-    } else if (dir === "NE") {
-      py = py - 3;
-      px = px + 3;
-    } else if (dir === "SW") {
-      py = py + 3;
-      px = px - 3;
-    } else if (dir === "SE") {
-      py = py + 3;
-      px = px + 3;
-    }
+    //medium mode
+    // if (dir === "N") {
+    //   py = py - 3;
+    // } else if (dir === "S") {
+    //   py = py + 3;
+    // } else if (dir === "E") {
+    //   px = px + 3;
+    // } else if (dir === "W") {
+    //   px = px - 3;
+    // } else if (dir === "NW") {
+    //   py = py - 3;
+    //   px = px - 3;
+    // } else if (dir === "NE") {
+    //   py = py - 3;
+    //   px = px + 3;
+    // } else if (dir === "SW") {
+    //   py = py + 3;
+    //   px = px - 3;
+    // } else if (dir === "SE") {
+    //   py = py + 3;
+    //   px = px + 3;
+    // }
+    
     let deltaX = enemeyTank.x-px; 
     let deltaY = enemeyTank.y-py; 
     let radians = Math.atan2(deltaY, deltaX)
@@ -345,15 +348,20 @@
     );
     laser.style.left = convertToPXs(laserX);
     laser.style.top = convertToPXs(laserY);
-    const [degrees, radians] = getAngleDegrees();
-
-    const dx = Math.cos(radians) * 25;
-    const dy = Math.sin(radians) * 25;
-    laser.style.transform = "rotate(" + degrees + "deg)";
+    const [d, r] = getAngleDegrees();
+    laser.style.transform = "rotate(" + d + "deg)";
 
     gameBoard_UI.appendChild(laser);
     for (let i = 0; i < 40; i++) {
       sleep(i * 40).then(() => {
+
+        //if hard mode
+        const [degrees, radians] = getAngleDegrees();
+
+        const dx = Math.cos(radians) * 25;
+        const dy = Math.sin(radians) * 25;
+        laser.style.transform = "rotate(" + degrees + "deg)";
+        //to here
 
         laser.style.top = convertToPXs(laserY - dy * i);
         laser.style.left = convertToPXs(laserX - dx * i);
