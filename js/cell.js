@@ -43,6 +43,15 @@ class Cell {
     }
 
     /**
+     * Gets a neighbor by direction.
+     * @param {string} direction - The direction (N, NE, E, SE, S, SW, W, NW)
+     * @returns {Object|undefined} The neighbor object or undefined
+     */
+    getNeighbor(direction) {
+        return this.neighbors.find(n => n.direction === direction);
+    }
+
+    /**
      * Finds the neighboring cell with the lowest distance value.
      * Used for pathfinding to trace the shortest path back.
      * @returns {Cell|null} The neighbor with the lowest distance, or null if none found
@@ -66,30 +75,31 @@ class Cell {
      * @param {MouseEvent} e - The mouse event
      */
     handleClick(e) {
-        if (this.session.settingStart && !this.session.hasStarted && !this.session.settingWalls && e.button === 0) {
+        const { session } = this;
+
+        if (session.settingStart && !session.hasStarted && !session.settingWalls && e.button === 0) {
             this.startCell = true;
             getCellElem(this.x, this.y).classList.add("start");
-            this.session.startCell = this;
-            this.session.settingStart = false;
-            this.session.settingEnd = true;
-            this.session.startSet = true;
+            session.startCell = this;
+            session.settingStart = false;
+            session.settingEnd = true;
+            session.startSet = true;
             document.getElementById("startMessage").classList.add("hidden");
             document.getElementById("endMessage").classList.remove("hidden");
-        } else if (this.session.settingEnd && !this.session.hasStarted && !this.session.settingWalls && e.button === 0) {
-            this.session.endCell = this;
+        } else if (session.settingEnd && !session.hasStarted && !session.settingWalls && e.button === 0) {
+            session.endCell = this;
             this.endCell = true;
             getCellElem(this.x, this.y).classList.add("end");
-            this.session.settingEnd = false;
-            this.session.endSet = true;
+            session.settingEnd = false;
+            session.endSet = true;
             document.getElementById("endMessage").classList.add("hidden");
             document.getElementById("wallMessage").classList.remove("hidden");
-            this.session.settingWalls = true;
-            for (let x = 0; x < this.session.gameBoard.cols; x++) {
-                for (let y = 0; y < this.session.gameBoard.rows; y++) {
-                    getCellElem(x, y).addEventListener("mouseover", (e) => onMouseOver(e, this));
-                }
-            }
-        } else if (!this.session.settingEnd && !this.session.settingStart && this.session.settingWalls && !this.session.hasStarted && e.button === 2) {
+            session.settingWalls = true;
+            // Add wall drawing listeners - pass session directly instead of cell context
+            session.gameBoard.forEachCellWithElement((cell, cellElem) => {
+                cellElem.addEventListener("mouseover", (e) => onMouseOver(e, session));
+            });
+        } else if (!session.settingEnd && !session.settingStart && session.settingWalls && !session.hasStarted && e.button === 2) {
             this.wall = false;
             getCellElem(this.x, this.y).classList.remove("wall");
         }
@@ -99,13 +109,13 @@ class Cell {
 /**
  * Handles mouse over events for wall placement during setup.
  * @param {MouseEvent} e - The mouse event
- * @param {Cell} c - The cell context
+ * @param {GameSession} session - The game session
  */
-function onMouseOver(e, c) {
+function onMouseOver(e, session) {
     clearSelection();
-    if (c.session.leftMouseButtonOnlyDown && !c.session.hasStarted && c.session.settingWalls) {
+    if (session.leftMouseButtonOnlyDown && !session.hasStarted && session.settingWalls) {
         const [x, y] = getXYFromCell(e.target);
-        const cell = c.session.gameBoard.getCell(x, y);
+        const cell = session.gameBoard.getCell(x, y);
         if (cell.startCell || cell.endCell || cell.wall) {
             return;
         }

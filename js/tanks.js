@@ -44,6 +44,14 @@
         SMALL: 60 * 60
     };
 
+    /** Diagonal directions and their adjacent cardinal directions */
+    const DIAGONAL_ADJACENT = {
+        NE: ["N", "E"],
+        SE: ["S", "E"],
+        SW: ["S", "W"],
+        NW: ["N", "W"]
+    };
+
     // ========================================================================
     // Game State
     // ========================================================================
@@ -192,7 +200,8 @@
             for (const n of cell.neighbors.slice().reverse()) {
                 const neighborCell = session.gameBoard.getCell(n.x, n.y);
 
-                // Check for blocked diagonal corners
+                // Permanently sever blocked diagonal connections
+                // This prevents the enemy from squeezing through diagonal wall gaps
                 if (isBlockedDiagonal(n.direction, cell)) {
                     cell.neighbors.splice(cell.neighbors.indexOf(n), 1);
                     continue;
@@ -249,47 +258,19 @@
      * @returns {boolean} True if the diagonal is blocked
      */
     function isBlockedDiagonal(direction, cell) {
-        const diagonalChecks = {
-            NE: ["N", "E"],
-            SE: ["S", "E"],
-            SW: ["S", "W"],
-            NW: ["N", "W"]
-        };
-
-        const adjacentDirs = diagonalChecks[direction];
+        const adjacentDirs = DIAGONAL_ADJACENT[direction];
         if (!adjacentDirs) return false;
 
-        return checkCorner(adjacentDirs[0], adjacentDirs[1], cell, direction);
-    }
+        // Get adjacent cells directly using the Cell.getNeighbor helper
+        const neighbor1 = cell.getNeighbor(adjacentDirs[0]);
+        const neighbor2 = cell.getNeighbor(adjacentDirs[1]);
+        const neighborDiag = cell.getNeighbor(direction);
 
-    /**
-     * Checks if a corner movement is blocked by two adjacent walls.
-     * @param {string} dir1 - First cardinal direction
-     * @param {string} dir2 - Second cardinal direction
-     * @param {Cell} cell - The cell to check from
-     * @param {string} diagonalDir - The diagonal direction
-     * @returns {boolean} True if movement is blocked
-     */
-    function checkCorner(dir1, dir2, cell, diagonalDir) {
-        let cell1 = null;
-        let cell2 = null;
-        let cellDiag = null;
+        if (!neighbor1 || !neighbor2 || !neighborDiag) return false;
 
-        for (const n of cell.neighbors) {
-            if (n.direction === dir1) {
-                cell1 = session.gameBoard.getCell(n.x, n.y);
-            }
-            if (n.direction === dir2) {
-                cell2 = session.gameBoard.getCell(n.x, n.y);
-            }
-            if (n.direction === diagonalDir) {
-                cellDiag = session.gameBoard.getCell(n.x, n.y);
-            }
-        }
-
-        if (!cell1 || !cell2 || !cellDiag) {
-            return false;
-        }
+        const cell1 = session.gameBoard.getCell(neighbor1.x, neighbor1.y);
+        const cell2 = session.gameBoard.getCell(neighbor2.x, neighbor2.y);
+        const cellDiag = session.gameBoard.getCell(neighborDiag.x, neighborDiag.y);
 
         // Block diagonal if both adjacent cells are walls but diagonal isn't
         return cell1.wall && cell2.wall && !cellDiag.wall;
@@ -308,11 +289,7 @@
         if (!neighbor) return;
 
         const cell = session.gameBoard.getCell(neighbor.x, neighbor.y);
-        if (!cell) return;
-
-        if (cell.wall) {
-            return;
-        }
+        if (!cell || cell.wall) return;
 
         if (cell.startCell) {
             gameOverHandler("You ran into the enemy tank");
@@ -415,6 +392,58 @@
     }
 
     /**
+     * Animates a laser element with collision detection.
+     * @param {HTMLElement} laser - The laser DOM element
+     * @param {number} startX - Starting X position
+     * @param {number} startY - Starting Y position
+     * @param {Object} config - Animation configuration
+     * @param {number} config.frames - Number of animation frames
+     * @param {number} config.frameDelay - Delay between frames in ms
+     * @param {function} config.getMovement - Function returning [dx, dy, angle] for each frame
+     * @param {Cell} config.targetCell - The cell to check for collision (enemy or player)
+     * @param {string} config.hitMessage - Message to display on hit
+     */
+    function animateLaser(laser, startX, startY, config) {
+        const { frames, frameDelay, getMovement, targetCell, hitMessage } = config;
+
+        for (let i = 0; i < frames; i++) {
+            sleep(i * frameDelay).then(() => {
+                if (!laser.parentNode) return;
+
+                const [dx, dy, angle] = getMovement(i);
+
+                laser.style.transform = `rotate(${angle}deg)`;
+                laser.style.top = convertToPXs(startY - dy);
+                laser.style.left = convertToPXs(startX - dx);
+
+                // Check collision with target tank
+                const targetElem = session.gameBoard.getElement(targetCell.x, targetCell.y);
+                if (collides(laser, targetElem)) {
+                    targetElem.classList.remove("start", "end");
+                    gameOverHandler(hitMessage);
+                    return;
+                }
+
+                // Check collision with walls
+                const walls = Array.from(document.getElementsByClassName("wall"));
+                for (const wall of walls) {
+                    if (collides(laser, wall)) {
+                        laser.remove();
+                        return;
+                    }
+                }
+
+                // Remove if off-board
+                if (!collides(laser, gameBoardUI)) {
+                    laser.remove();
+                }
+            });
+        }
+
+        sleep(LASER.LIFETIME).then(() => laser.remove());
+    }
+
+    /**
      * Fires the player's laser in the current movement direction.
      */
     function firePlayerLaser() {
@@ -436,38 +465,13 @@
         laser.style.transform = `rotate(${angle}deg)`;
         gameBoardUI.appendChild(laser);
 
-        // Animate laser movement
-        for (let i = 0; i < LASER.PLAYER_FRAMES; i++) {
-            sleep(i * LASER.PLAYER_FRAME_DELAY).then(() => {
-                if (!laser.parentNode) return; // Already removed
-
-                laser.style.top = convertToPXs(laserY - dy * i);
-                laser.style.left = convertToPXs(laserX - dx * i);
-
-                // Check collision with enemy tank
-                if (collides(laser, getCellElemFromCell(session.startCell))) {
-                    document.querySelector(".start")?.classList.remove("start");
-                    gameOverHandler("You shot the enemy tank!");
-                    return;
-                }
-
-                // Check collision with walls (snapshot to avoid live collection issues)
-                const walls = Array.from(document.getElementsByClassName("wall"));
-                for (const wall of walls) {
-                    if (collides(laser, wall)) {
-                        laser.remove();
-                        return;
-                    }
-                }
-
-                // Remove if off-board
-                if (!collides(laser, gameBoardUI)) {
-                    laser.remove();
-                }
-            });
-        }
-
-        sleep(LASER.LIFETIME).then(() => laser.remove());
+        animateLaser(laser, laserX, laserY, {
+            frames: LASER.PLAYER_FRAMES,
+            frameDelay: LASER.PLAYER_FRAME_DELAY,
+            getMovement: (i) => [dx * i, dy * i, angle],
+            targetCell: session.startCell,
+            hitMessage: "You shot the enemy tank!"
+        });
     }
 
     /**
@@ -533,44 +537,19 @@
 
         gameBoardUI.appendChild(laser);
 
-        // Animate laser with seeking behavior
-        for (let i = 0; i < LASER.ENEMY_FRAMES; i++) {
-            sleep(i * LASER.ENEMY_FRAME_DELAY).then(() => {
-                if (!laser.parentNode) return; // Already removed
-
-                // Recalculate angle for seeking behavior
+        animateLaser(laser, laserX, laserY, {
+            frames: LASER.ENEMY_FRAMES,
+            frameDelay: LASER.ENEMY_FRAME_DELAY,
+            getMovement: (i) => {
+                // Recalculate angle each frame for seeking behavior
                 const [degrees, radians] = getAngleDegrees();
-                const dx = Math.cos(radians) * LASER.ENEMY_SPEED;
-                const dy = Math.sin(radians) * LASER.ENEMY_SPEED;
-
-                laser.style.transform = `rotate(${degrees}deg)`;
-                laser.style.top = convertToPXs(laserY - dy * i);
-                laser.style.left = convertToPXs(laserX - dx * i);
-
-                // Check collision with player tank
-                if (collides(laser, getCellElemFromCell(session.endCell))) {
-                    document.querySelector(".start")?.classList.remove("start");
-                    gameOverHandler("Enemy tank shot you!");
-                    return;
-                }
-
-                // Check collision with walls (snapshot to avoid live collection issues)
-                const walls = Array.from(document.getElementsByClassName("wall"));
-                for (const wall of walls) {
-                    if (collides(laser, wall)) {
-                        laser.remove();
-                        return;
-                    }
-                }
-
-                // Remove if off-board
-                if (!collides(laser, gameBoardUI)) {
-                    laser.remove();
-                }
-            });
-        }
-
-        sleep(LASER.LIFETIME).then(() => laser.remove());
+                const dx = Math.cos(radians) * LASER.ENEMY_SPEED * i;
+                const dy = Math.sin(radians) * LASER.ENEMY_SPEED * i;
+                return [dx, dy, degrees];
+            },
+            targetCell: session.endCell,
+            hitMessage: "Enemy tank shot you!"
+        });
     }
 
     // ========================================================================
@@ -607,12 +586,21 @@
         if (session.hasEnded) {
             cellElem.classList.remove("mine", "mineFlash");
         } else {
-            // Check for enemy in blast radius
+            // Check if enemy is on the mine's cell (direct hit)
+            if (cell.startCell) {
+                session.gameBoard.getElement(session.startCell.x, session.startCell.y).classList.remove("start");
+                gameOverHandler("You blew up the enemy tank!");
+                cellElem.classList.remove("mine");
+                mineCount--;
+                return;
+            }
+
+            // Check for enemy in blast radius (neighbors)
             for (const n of cell.neighbors) {
                 const neighborCell = session.gameBoard.getCell(n.x, n.y);
 
                 if (neighborCell.startCell) {
-                    document.querySelector(".start")?.classList.remove("start");
+                    session.gameBoard.getElement(session.startCell.x, session.startCell.y).classList.remove("start");
                     gameOverHandler("You blew up the enemy tank!");
                 } else {
                     getCellElemFromCell(neighborCell).classList.add("mineFlash");
@@ -723,13 +711,17 @@
             keyDowns[e.key] = false;
 
             if (!session.paused) {
-                if (e.key !== " " && e.key !== "m") {
-                    session.movementQueue.empty();
-                } else if (e.key === " ") {
-                    firePlayerLaser();
-                    session.firingQueue.empty();
-                } else if (e.key === "m") {
-                    placeMine();
+                switch (e.key) {
+                    case " ":
+                        firePlayerLaser();
+                        session.firingQueue.empty();
+                        break;
+                    case "m":
+                        placeMine();
+                        break;
+                    default:
+                        session.movementQueue.empty();
+                        break;
                 }
 
                 const pressedEvents = getPressedEvents();
