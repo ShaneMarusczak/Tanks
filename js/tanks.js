@@ -50,10 +50,12 @@
 
     const session = new GameSession(DEFAULT_SPEED, DEFAULT_GRID_SIZE, DEFAULT_GRID_SIZE);
 
-    // DOM element references
+    // DOM element references (cached at startup)
     const gameBoardUI = document.getElementById("gameBoard_UI");
     const startButton = document.getElementById("start");
     const pauseButton = document.getElementById("pause");
+    const difficultySelect = document.getElementById("difficulty");
+    const reloadButton = document.getElementById("reload");
 
     // Input state
     const keyDowns = {};
@@ -72,6 +74,79 @@
     }
 
     // ========================================================================
+    // Input State Helpers
+    // ========================================================================
+
+    /**
+     * Gets the current state of directional and action keys.
+     * @returns {Object} Object containing boolean flags for each direction and space
+     */
+    function getKeyState() {
+        return {
+            up: keyDowns.ArrowUp || keyDowns.w || keyDowns.W,
+            down: keyDowns.ArrowDown || keyDowns.s || keyDowns.S,
+            left: keyDowns.ArrowLeft || keyDowns.a || keyDowns.A,
+            right: keyDowns.ArrowRight || keyDowns.d || keyDowns.D,
+            space: keyDowns[" "]
+        };
+    }
+
+    /**
+     * Checks if the current key state is valid for movement.
+     * @returns {boolean} True if keys pressed form a valid input
+     */
+    function checkValidKeyState() {
+        const { up, down, left, right, space } = getKeyState();
+
+        // Invalid if opposite directions pressed
+        if ((up && down) || (left && right)) return false;
+
+        // Need at least one input
+        return up || down || left || right || space;
+    }
+
+    /**
+     * Gets the current pressed events based on key state.
+     * @returns {GameEvent[]} Array of events for pressed keys
+     */
+    function getPressedEvents() {
+        const { up, down, left, right, space } = getKeyState();
+        const events = [];
+
+        // Determine movement direction using a cleaner approach
+        const direction = getDirectionFromKeys(up, down, left, right);
+        if (direction) {
+            events.push(new GameEvent("move", direction));
+        }
+
+        if (space) {
+            events.push(new GameEvent("fire", "playertank"));
+        }
+
+        return events;
+    }
+
+    /**
+     * Converts key states to a direction string.
+     * @param {boolean} up - Up key pressed
+     * @param {boolean} down - Down key pressed
+     * @param {boolean} left - Left key pressed
+     * @param {boolean} right - Right key pressed
+     * @returns {string|null} Direction string or null if no movement
+     */
+    function getDirectionFromKeys(up, down, left, right) {
+        if (up && left) return "NW";
+        if (up && right) return "NE";
+        if (down && right) return "SE";
+        if (down && left) return "SW";
+        if (down) return "S";
+        if (up) return "N";
+        if (left) return "W";
+        if (right) return "E";
+        return null;
+    }
+
+    // ========================================================================
     // Pathfinding
     // ========================================================================
 
@@ -80,27 +155,20 @@
      * @param {boolean} [resetEnd=true] - Whether to reset end cell markers
      */
     function resetSignal(resetEnd = true) {
-        const { cols, rows } = session.gameBoard;
+        session.gameBoard.forEachCellWithElement((cell, cellElem) => {
+            cell.path = false;
 
-        for (let x = 0; x < cols; x++) {
-            for (let y = 0; y < rows; y++) {
-                const cell = session.gameBoard.getCell(x, y);
-                const cellElem = getCellElem(x, y);
+            if (cell.wall) return;
 
-                cell.path = false;
-
-                if (cell.wall) continue;
-
-                if (resetEnd) {
-                    cell.endCell = false;
-                    cellElem.classList.remove("end");
-                }
-
-                cellElem.classList.remove("path");
-                cell.visited = false;
-                cell.distance = 0;
+            if (resetEnd) {
+                cell.endCell = false;
+                cellElem.classList.remove("end");
             }
-        }
+
+            cellElem.classList.remove("path");
+            cell.visited = false;
+            cell.distance = 0;
+        });
     }
 
     /**
@@ -151,22 +219,27 @@
 
     /**
      * Traces the shortest path from start to end by following lowest distances.
-     * @param {Cell} root - The current cell in the path
+     * Uses iteration instead of recursion for stack safety on large grids.
+     * @param {Cell} startCell - The starting cell for path tracing
      */
-    function walkPath(root) {
-        root.path = true;
+    function walkPath(startCell) {
+        let current = startCell;
 
-        if (root.distance === 0) {
-            return;
+        while (current) {
+            current.path = true;
+
+            if (current.distance === 0) {
+                break;
+            }
+
+            if (!current.startCell) {
+                const cellElem = session.gameBoard.getElement(current.x, current.y);
+                cellElem.classList.remove("visited");
+                cellElem.classList.add("path");
+            }
+
+            current = current.getLowestDistanceNeighbor();
         }
-
-        if (!root.startCell) {
-            const cellElem = getCellElem(root.x, root.y);
-            cellElem.classList.remove("visited");
-            cellElem.classList.add("path");
-        }
-
-        walkPath(root.getLowestDistanceNeighbor());
     }
 
     /**
@@ -283,13 +356,13 @@
 
         // Clear old position
         session.startCell.startCell = false;
-        getCellElem(session.startCell.x, session.startCell.y).classList.remove("start");
+        session.gameBoard.getElement(session.startCell.x, session.startCell.y).classList.remove("start");
         session.startCell.path = false;
 
         // Set new position
         pathCell.startCell = true;
         session.startCell = pathCell;
-        getCellElem(pathCell.x, pathCell.y).classList.add("start");
+        session.gameBoard.getElement(pathCell.x, pathCell.y).classList.add("start");
 
         // Recalculate path
         resetSignal(false);
@@ -366,17 +439,21 @@
         // Animate laser movement
         for (let i = 0; i < LASER.PLAYER_FRAMES; i++) {
             sleep(i * LASER.PLAYER_FRAME_DELAY).then(() => {
+                if (!laser.parentNode) return; // Already removed
+
                 laser.style.top = convertToPXs(laserY - dy * i);
                 laser.style.left = convertToPXs(laserX - dx * i);
 
                 // Check collision with enemy tank
                 if (collides(laser, getCellElemFromCell(session.startCell))) {
-                    document.getElementsByClassName("start")[0]?.classList.remove("start");
+                    document.querySelector(".start")?.classList.remove("start");
                     gameOverHandler("You shot the enemy tank!");
+                    return;
                 }
 
-                // Check collision with walls
-                for (const wall of document.getElementsByClassName("wall")) {
+                // Check collision with walls (snapshot to avoid live collection issues)
+                const walls = Array.from(document.getElementsByClassName("wall"));
+                for (const wall of walls) {
                     if (collides(laser, wall)) {
                         laser.remove();
                         return;
@@ -459,6 +536,8 @@
         // Animate laser with seeking behavior
         for (let i = 0; i < LASER.ENEMY_FRAMES; i++) {
             sleep(i * LASER.ENEMY_FRAME_DELAY).then(() => {
+                if (!laser.parentNode) return; // Already removed
+
                 // Recalculate angle for seeking behavior
                 const [degrees, radians] = getAngleDegrees();
                 const dx = Math.cos(radians) * LASER.ENEMY_SPEED;
@@ -470,12 +549,14 @@
 
                 // Check collision with player tank
                 if (collides(laser, getCellElemFromCell(session.endCell))) {
-                    document.getElementsByClassName("start")[0]?.classList.remove("start");
+                    document.querySelector(".start")?.classList.remove("start");
                     gameOverHandler("Enemy tank shot you!");
+                    return;
                 }
 
-                // Check collision with walls
-                for (const wall of document.getElementsByClassName("wall")) {
+                // Check collision with walls (snapshot to avoid live collection issues)
+                const walls = Array.from(document.getElementsByClassName("wall"));
+                for (const wall of walls) {
                     if (collides(laser, wall)) {
                         laser.remove();
                         return;
@@ -531,7 +612,7 @@
                 const neighborCell = session.gameBoard.getCell(n.x, n.y);
 
                 if (neighborCell.startCell) {
-                    document.getElementsByClassName("start")[0]?.classList.remove("start");
+                    document.querySelector(".start")?.classList.remove("start");
                     gameOverHandler("You blew up the enemy tank!");
                 } else {
                     getCellElemFromCell(neighborCell).classList.add("mineFlash");
@@ -560,10 +641,10 @@
      */
     async function gameTick() {
         while (!session.hasEnded && !session.paused) {
-            session.speed = document.getElementById("difficulty").value;
+            session.speed = parseInt(difficultySelect.value, 10);
             moveEnemyTowardsPlayer();
             fireEnemyLaser();
-            await sleep(parseInt(session.speed, 10));
+            await sleep(session.speed);
         }
     }
 
@@ -597,74 +678,20 @@
     }
 
     // ========================================================================
-    // Input Handling
+    // Keyboard Input
     // ========================================================================
 
-    /**
-     * Checks if the current key state is valid for movement.
-     * @returns {boolean} True if keys pressed form a valid input
-     */
-    function checkValidKeyState() {
-        const up = keyDowns.ArrowUp || keyDowns.w || keyDowns.W;
-        const down = keyDowns.ArrowDown || keyDowns.s || keyDowns.S;
-        const left = keyDowns.ArrowLeft || keyDowns.a || keyDowns.A;
-        const right = keyDowns.ArrowRight || keyDowns.d || keyDowns.D;
-        const space = keyDowns[" "];
-
-        // Invalid if opposite directions pressed
-        if ((up && down) || (left && right)) return false;
-
-        // Need at least one input
-        return up || down || left || right || space;
-    }
-
-    /**
-     * Gets the current pressed events based on key state.
-     * @returns {GameEvent[]} Array of events for pressed keys
-     */
-    function getPressedEvents() {
-        const up = keyDowns.ArrowUp || keyDowns.w || keyDowns.W;
-        const down = keyDowns.ArrowDown || keyDowns.s || keyDowns.S;
-        const left = keyDowns.ArrowLeft || keyDowns.a || keyDowns.A;
-        const right = keyDowns.ArrowRight || keyDowns.d || keyDowns.D;
-        const space = keyDowns[" "];
-
-        const events = [];
-
-        // Determine movement direction
-        if (up && left) {
-            events.push(new GameEvent("move", "NW"));
-        } else if (up && right) {
-            events.push(new GameEvent("move", "NE"));
-        } else if (down && right) {
-            events.push(new GameEvent("move", "SE"));
-        } else if (down && left) {
-            events.push(new GameEvent("move", "SW"));
-        } else if (down) {
-            events.push(new GameEvent("move", "S"));
-        } else if (up) {
-            events.push(new GameEvent("move", "N"));
-        } else if (left) {
-            events.push(new GameEvent("move", "W"));
-        } else if (right) {
-            events.push(new GameEvent("move", "E"));
-        }
-
-        if (space) {
-            events.push(new GameEvent("fire", "playertank"));
-        }
-
-        return events;
-    }
+    /** Keys that should have their default behavior prevented */
+    const PREVENT_DEFAULT_KEYS = new Set([
+        "Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyM"
+    ]);
 
     /**
      * Handles keydown events for game input.
      * @param {KeyboardEvent} e - The keyboard event
      */
     function keyDownHandler(e) {
-        const preventDefaultKeys = ["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyM"];
-
-        if (preventDefaultKeys.includes(e.code)) {
+        if (PREVENT_DEFAULT_KEYS.has(e.code)) {
             e.preventDefault();
         }
 
@@ -688,9 +715,7 @@
      * @param {KeyboardEvent} e - The keyboard event
      */
     function keyUpHandler(e) {
-        const preventDefaultKeys = ["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyM"];
-
-        if (preventDefaultKeys.includes(e.code)) {
+        if (PREVENT_DEFAULT_KEYS.has(e.code)) {
             e.preventDefault();
         }
 
@@ -724,21 +749,27 @@
     // ========================================================================
 
     /**
+     * Removes all elements with a given class name safely.
+     * Uses Array.from to avoid live collection mutation issues.
+     * @param {string} className - The class name to remove
+     */
+    function removeAllByClass(className) {
+        const elements = Array.from(document.getElementsByClassName(className));
+        elements.forEach(el => el.remove());
+    }
+
+    /**
      * Handles game over state.
      * @param {string} message - The game over message to display
      */
     function gameOverHandler(message) {
-        // Clean up all lasers
-        for (const laser of document.getElementsByClassName("laser")) {
-            laser.remove();
-        }
-        for (const laser of document.getElementsByClassName("enemylaser")) {
-            laser.remove();
-        }
+        // Clean up all lasers safely
+        removeAllByClass("laser");
+        removeAllByClass("enemylaser");
 
         alert(message);
         session.hasEnded = true;
-        document.getElementById("reload").classList.remove("notShown");
+        reloadButton.classList.remove("notShown");
     }
 
     /**
@@ -752,11 +783,11 @@
         if (!session.paused) {
             gameTick();
             eventLoop();
-            document.getElementById("reload").classList.add("notShown");
+            reloadButton.classList.add("notShown");
         } else {
             session.movementQueue.empty();
             session.firingQueue.empty();
-            document.getElementById("reload").classList.remove("notShown");
+            reloadButton.classList.remove("notShown");
         }
 
         pauseButton.textContent = session.paused ? "Unpause" : "Pause";
@@ -800,7 +831,7 @@
         startButton.classList.add("hidden");
         document.getElementById("wallMessage").classList.add("notShown");
         pauseButton.classList.remove("hidden");
-        document.getElementById("reload").classList.add("notShown");
+        reloadButton.classList.add("notShown");
 
         for (const cellElem of document.querySelectorAll(".cell")) {
             cellElem.removeEventListener("mouseover", highlightCell);
@@ -812,13 +843,9 @@
      * Removes hover effects from all cells.
      */
     function disableHover() {
-        const { cols, rows } = session.gameBoard;
-
-        for (let x = 0; x < cols; x++) {
-            for (let y = 0; y < rows; y++) {
-                getCellElem(x, y).classList.remove("cell_hover");
-            }
-        }
+        session.gameBoard.forEachCellWithElement((cell, cellElem) => {
+            cellElem.classList.remove("cell_hover");
+        });
     }
 
     // ========================================================================
@@ -894,6 +921,9 @@
 
                 col.appendChild(cellElem);
 
+                // Cache the element for faster lookups later
+                session.gameBoard.cacheElement(x, y, cellElem);
+
                 cellElem.addEventListener("mouseup", (e) => newCell.handleClick(e));
                 cellElem.addEventListener("mouseover", highlightCell);
                 cellElem.addEventListener("mouseout", highlightCellRevert);
@@ -922,13 +952,8 @@
         const list = document.getElementById("ctrlList");
         const btn = document.getElementById("hideBtn");
 
-        if (list.classList.contains("hidden")) {
-            list.classList.remove("hidden");
-            btn.textContent = "Hide";
-        } else {
-            list.classList.add("hidden");
-            btn.textContent = "Show";
-        }
+        list.classList.toggle("hidden");
+        btn.textContent = list.classList.contains("hidden") ? "Show" : "Hide";
     }
 
     // ========================================================================
@@ -960,8 +985,8 @@
         document.ondragstart = () => false;
 
         // Blur difficulty selector on change
-        document.getElementById("difficulty").addEventListener("change", (e) => {
-            e.target.blur();
+        difficultySelect.addEventListener("change", () => {
+            difficultySelect.blur();
         });
 
         // Prevent game board dragging
